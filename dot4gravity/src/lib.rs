@@ -420,4 +420,113 @@ impl Game {
 
         Ok(game_state)
     }
+
+    fn check_winner_player(mut game_state: GameState) -> GameState {
+        if game_state.winner.is_some() {
+            return game_state;
+        }
+
+        let board = &game_state.board;
+        // Check vertical
+        for row in 0..BOARD_HEIGHT - 3 {
+            for col in 0..BOARD_WIDTH {
+                let cell = board.get_cell(&Coordinates { row, col });
+                match cell {
+                    Cell::Stone(player) => {
+                        if cell == board.get_cell(&Coordinates { row: row + 1, col })
+                            && cell == board.get_cell(&Coordinates { row: row + 2, col })
+                            && cell == board.get_cell(&Coordinates { row: row + 3, col })
+                        {
+                            game_state.winner = Some(player);
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // Check horizontal
+        for row in 0..BOARD_HEIGHT {
+            for col in 0..BOARD_WIDTH - 3 {
+                let cell = board.get_cell(&Coordinates { row, col });
+                match cell {
+                    Cell::Stone(player) => {
+                        if cell == board.get_cell(&Coordinates { row, col: col + 1 })
+                            && cell == board.get_cell(&Coordinates { row, col: col + 2 })
+                            && cell == board.get_cell(&Coordinates { row, col: col + 3 })
+                        {
+                            game_state.winner = Some(player);
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // Check ascending diagonal
+        for row in 3..BOARD_HEIGHT {
+            for col in 0..BOARD_WIDTH - 3 {
+                let cell = board.get_cell(&Coordinates { row, col });
+                match cell {
+                    Cell::Stone(player) => {
+                        if cell
+                            == board.get_cell(&Coordinates {
+                                row: row - 1,
+                                col: col + 1,
+                            })
+                            && cell
+                                == board.get_cell(&Coordinates {
+                                    row: row - 2,
+                                    col: col + 2,
+                                })
+                            && cell
+                                == board.get_cell(&Coordinates {
+                                    row: row - 3,
+                                    col: col + 3,
+                                })
+                        {
+                            game_state.winner = Some(player);
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // Check diagonal descending
+        for row in 0..BOARD_HEIGHT - 3 {
+            for col in 0..BOARD_WIDTH - 3 {
+                let cell = board.get_cell(&Coordinates { row, col });
+                match cell {
+                    Cell::Stone(player) => {
+                        if cell
+                            == board.get_cell(&Coordinates {
+                                row: row + 1,
+                                col: col + 1,
+                            })
+                            && cell
+                                == board.get_cell(&Coordinates {
+                                    row: row + 2,
+                                    col: col + 2,
+                                })
+                            && cell
+                                == board.get_cell(&Coordinates {
+                                    row: row + 3,
+                                    col: col + 3,
+                                })
+                        {
+                            game_state.winner = Some(player);
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        game_state
+    }
 }
