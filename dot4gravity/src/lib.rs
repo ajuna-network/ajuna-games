@@ -67,26 +67,31 @@ impl Cell {
 }
 
 /// Coordinates for a cell in the board.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 struct Coordinates {
     row: usize,
     col: usize,
 }
 
 impl Coordinates {
+    /// Tells if a cell is inside the board.
     fn is_inside_board(&self) -> bool {
         self.row < BOARD_WIDTH && self.col < BOARD_HEIGHT
     }
 
-    fn is_edge_position(&self) -> bool {
-        self.col == BOARD_WIDTH - 1
-            || self.row == BOARD_HEIGHT - 1
-            || self.col == 0
-            || self.row == 0
+    /// Tells if a cell is in the oposite of a side.
+    fn is_opposite_cell(&self, side: Side) -> bool {
+        match side {
+            Side::North => self.row == BOARD_HEIGHT - 1,
+            Side::East => self.col == 0,
+            Side::South => self.row == 0,
+            Side::West => self.col == BOARD_WIDTH - 1,
+        }
     }
 }
 
 /// Sides of the board from which a player can drop a stone.
+#[derive(Clone, Debug)]
 enum Side {
     North,
     East,
@@ -94,7 +99,7 @@ enum Side {
     West,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Board {
     cells: [[Cell; BOARD_WIDTH]; BOARD_HEIGHT],
 }
@@ -175,7 +180,7 @@ impl Board {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum GamePhase {
     /// Not turn based. The players place bombs during this phase.
     Bomb,
@@ -195,9 +200,11 @@ enum GameError {
     InvalidDroppingPosition,
     /// Tried to drop a stone during other player's turn
     NotPlayerTurn,
+    /// The cell has no previous position. It is an edge cell.
+    NoPreviousPosition,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct GameState {
     /// Represents the game board.
     board: Board,
@@ -209,6 +216,69 @@ struct GameState {
     next_player: Player,
     /// Number of bombs available for each player.
     bombs: [usize; NUM_OF_PLAYERS],
+}
+
+impl GameState {
+    fn is_all_bomb_dropped(&self) -> bool {
+        self.bombs.iter().all(|bombs| *bombs == 0usize)
+    }
+
+    fn change_game_phase(&mut self, phase: GamePhase) {
+        self.phase = phase
+    }
+}
+
+#[derive(Clone, Debug)]
+struct MovingStone {
+    position: Coordinates,
+    side: Side,
+}
+
+impl MovingStone {
+    fn get_previous_position(&self) -> Result<Coordinates, GameError> {
+        match self.side {
+            Side::North => {
+                if self.position.row > 0 {
+                    Ok(Coordinates {
+                        row: self.position.row - 1,
+                        col: self.position.col,
+                    })
+                } else {
+                    Err(GameError::NoPreviousPosition)
+                }
+            }
+            Side::East => {
+                if self.position.col < BOARD_WIDTH - 1 {
+                    Ok(Coordinates {
+                        row: self.position.row,
+                        col: self.position.col + 1,
+                    })
+                } else {
+                    Err(GameError::NoPreviousPosition)
+                }
+            }
+            Side::South => {
+                if self.position.row < BOARD_WIDTH - 1 {
+                    Ok(Coordinates {
+                        row: self.position.row + 1,
+                        col: self.position.col,
+                    })
+                } else {
+                    Err(GameError::NoPreviousPosition)
+                }
+            }
+            Side::West => {
+                if self.position.col > 0 {
+                    Ok(Coordinates {
+                        row: self.position.row,
+                        col: self.position.col - 1,
+                    })
+                } else {
+                    Err(GameError::NoPreviousPosition)
+                }
+            }
+        }
+    }
 }
 
 struct Game;
@@ -227,10 +297,10 @@ impl Game {
 
     /// Drop a bomb. Called during bomb phase.
     fn drop_bomb(
-        mut game_state: GameState,
+        game_state: &mut GameState,
         position: Coordinates,
         player: Player,
-    ) -> Result<GameState, GameError> {
+    ) -> Result<bool, GameError> {
         if game_state.phase == GamePhase::Play {
             return Err(GameError::DroppedBombDuringPlayPhase);
         }
@@ -244,19 +314,27 @@ impl Game {
         {
             return Err(GameError::InvalidBombPosition);
         }
-
-        game_state.bombs[player as usize] -= 1;
         match game_state.board.cells[position.row][position.col] {
             Cell::Empty => {
-                game_state.board.cells[position.row][position.col] =
-                    Cell::Bomb([Some(player), None]);
+                game_state
+                    .board
+                    .change_cell(position, Cell::Bomb([Some(player), None]));
+                game_state.bombs[player as usize] -= 1;
+                if game_state.is_all_bomb_dropped() {
+                    game_state.change_game_phase(GamePhase::Play);
+                }
             }
             Cell::Bomb([Some(other_player), None]) => {
                 if other_player == player {
                     return Err(GameError::InvalidBombPosition);
                 } else {
-                    game_state.board.cells[position.row][position.col] =
-                        Cell::Bomb([Some(other_player), Some(player)]);
+                    game_state
+                        .board
+                        .change_cell(position, Cell::Bomb([Some(other_player), Some(player)]));
+                    game_state.bombs[player as usize] -= 1;
+                    if game_state.is_all_bomb_dropped() {
+                        game_state.change_game_phase(GamePhase::Play);
+                    }
                 }
             }
             Cell::Bomb([Some(_), Some(_)]) => {
@@ -265,12 +343,12 @@ impl Game {
             _ => return Err(GameError::InvalidBombPosition),
         }
 
-        Ok(game_state)
+        Ok(true)
     }
 
     /// Change game phase.
     fn change_game_phase(mut game_state: GameState, phase: GamePhase) -> GameState {
-        game_state.phase = phase;
+        game_state.change_game_phase(phase);
         game_state
     }
 
@@ -289,134 +367,231 @@ impl Game {
             return Err(GameError::NotPlayerTurn);
         }
 
-        let is_travesable_cell = |position: &Coordinates| -> bool {
-            game_state.board.get_cell(position).is_travesable()
-        };
-
-        fn update_board_for_stone(
-            mut game_state: GameState,
-            stone_position: &Coordinates,
-            stone_prev_position: &Coordinates,
-            player: Player,
-        ) -> GameState {
-            match game_state.board.get_cell(&stone_position) {
-                // A cell bomb must explode.
-                Cell::Bomb([_, _]) => {
-                    game_state.board = Board::explode_bomb(game_state.board, *stone_position);
-                }
-                // The stone is placed at the end if it's empty.
-                Cell::Empty => {
-                    if stone_position.is_edge_position() {
-                        game_state
-                            .board
-                            .change_cell(*stone_position, Cell::Stone(player));
-                    }
-                }
-                // The stone is placed in the previous position of a block.
-                Cell::Block => {
-                    game_state
-                        .board
-                        .change_cell(*stone_prev_position, Cell::Stone(player));
-                }
-                // The stone is placed in the previous position of a stone.
-                Cell::Stone(_) => {
-                    game_state
-                        .board
-                        .change_cell(*stone_prev_position, Cell::Stone(player));
-                }
-            }
-
-            game_state
-        }
-
         match side {
             Side::North => {
-                if !is_travesable_cell(&Coordinates {
-                    row: 0,
-                    col: position,
-                }) {
-                    return Err(GameError::InvalidDroppingPosition);
-                }
-
-                for row in 1..BOARD_HEIGHT {
-                    game_state = update_board_for_stone(
-                        game_state,
-                        &Coordinates { row, col: position },
-                        &Coordinates {
-                            row: row - 1,
-                            col: position,
-                        },
-                        player,
-                    );
+                let mut row = 0;
+                let mut stop = false;
+                while row < BOARD_HEIGHT && !stop {
+                    let position = Coordinates { row, col: position };
+                    match game_state.board.get_cell(&position) {
+                        // A cell bomb must explode.
+                        Cell::Bomb([_, _]) => {
+                            game_state.board =
+                                Board::explode_bomb(game_state.board, position.clone());
+                            stop = true;
+                        }
+                        // The stone is placed at the end if it's empty.
+                        Cell::Empty => {
+                            if position.is_opposite_cell(side.clone()) {
+                                game_state.board.change_cell(position, Cell::Stone(player));
+                                stop = true;
+                            }
+                        }
+                        // The stone is placed in the position previous to a block.
+                        Cell::Block => {
+                            if row > 0 {
+                                game_state.board.change_cell(
+                                    Coordinates {
+                                        row: position.row - 1,
+                                        col: position.col,
+                                    },
+                                    Cell::Stone(player),
+                                );
+                            } else {
+                                return Err(GameError::InvalidDroppingPosition);
+                            }
+                            stop = true;
+                        }
+                        // The stone is placed in the previous position of a stone.
+                        Cell::Stone(_) => {
+                            if row > 0 {
+                                game_state.board.change_cell(
+                                    Coordinates {
+                                        row: position.row - 1,
+                                        col: position.col,
+                                    },
+                                    Cell::Stone(player),
+                                );
+                            } else {
+                                return Err(GameError::InvalidDroppingPosition);
+                            }
+                            stop = true;
+                        }
+                    }
+                    row += 1;
                 }
             }
             Side::East => {
-                if !is_travesable_cell(&Coordinates {
-                    row: position,
-                    col: BOARD_WIDTH - 1,
-                }) {
-                    return Err(GameError::InvalidDroppingPosition);
-                }
-
-                for col in (0..BOARD_WIDTH - 1).rev() {
-                    game_state = update_board_for_stone(
-                        game_state,
-                        &Coordinates {
-                            row: position,
-                            col: col,
-                        },
-                        &Coordinates {
-                            row: position,
-                            col: col + 1,
-                        },
-                        player,
-                    );
+                let mut col = BOARD_WIDTH - 1;
+                let mut stop = false;
+                loop {
+                    let position = Coordinates { row: position, col };
+                    match game_state.board.get_cell(&position) {
+                        // A cell bomb must explode.
+                        Cell::Bomb([_, _]) => {
+                            game_state.board =
+                                Board::explode_bomb(game_state.board, position.clone());
+                            break;
+                        }
+                        // The stone is placed at the end if it's empty.
+                        Cell::Empty => {
+                            if position.is_opposite_cell(side.clone()) {
+                                game_state.board.change_cell(position, Cell::Stone(player));
+                                break;
+                            }
+                        }
+                        // The stone is placed in the position previous to a block.
+                        Cell::Block => {
+                            if col < BOARD_WIDTH - 1 {
+                                game_state.board.change_cell(
+                                    Coordinates {
+                                        row: position.row,
+                                        col: position.col + 1,
+                                    },
+                                    Cell::Stone(player),
+                                );
+                            } else {
+                                return Err(GameError::InvalidDroppingPosition);
+                            }
+                            break;
+                        }
+                        // The stone is placed in the previous position of a stone.
+                        Cell::Stone(_) => {
+                            if col < BOARD_WIDTH - 1 {
+                                game_state.board.change_cell(
+                                    Coordinates {
+                                        row: position.row,
+                                        col: position.col + 1,
+                                    },
+                                    Cell::Stone(player),
+                                );
+                            } else {
+                                return Err(GameError::InvalidDroppingPosition);
+                            }
+                            break;
+                        }
+                    }
+                    if col == 0 {
+                        break;
+                    };
+                    col -= 1;
                 }
             }
             Side::South => {
-                if !is_travesable_cell(&Coordinates {
-                    row: BOARD_HEIGHT - 1,
-                    col: position,
-                }) {
-                    return Err(GameError::InvalidDroppingPosition);
-                }
+                let mut row = BOARD_HEIGHT - 1;
+                let mut stop = false;
 
-                for row in (0..BOARD_HEIGHT - 1).rev() {
-                    game_state = update_board_for_stone(
-                        game_state,
-                        &Coordinates { row, col: position },
-                        &Coordinates {
-                            row: row + 1,
-                            col: position,
-                        },
-                        player,
-                    );
+                loop {
+                    let position = Coordinates { row, col: position };
+                    match game_state.board.get_cell(&position) {
+                        // A cell bomb must explode.
+                        Cell::Bomb([_, _]) => {
+                            game_state.board =
+                                Board::explode_bomb(game_state.board, position.clone());
+                            break;
+                        }
+                        // The stone is placed at the end if it's empty.
+                        Cell::Empty => {
+                            if position.is_opposite_cell(side.clone()) {
+                                game_state.board.change_cell(position, Cell::Stone(player));
+                                break;
+                            }
+                        }
+                        // The stone is placed in the position previous to a block.
+                        Cell::Block => {
+                            if row < BOARD_HEIGHT - 1 {
+                                game_state.board.change_cell(
+                                    Coordinates {
+                                        row: position.row + 1,
+                                        col: position.col,
+                                    },
+                                    Cell::Stone(player),
+                                );
+                            } else {
+                                return Err(GameError::InvalidDroppingPosition);
+                            }
+                            break;
+                        }
+                        // The stone is placed in the previous position of a stone.
+                        Cell::Stone(_) => {
+                            if row < BOARD_HEIGHT - 1 {
+                                game_state.board.change_cell(
+                                    Coordinates {
+                                        row: position.row + 1,
+                                        col: position.col,
+                                    },
+                                    Cell::Stone(player),
+                                );
+                            } else {
+                                return Err(GameError::InvalidDroppingPosition);
+                            }
+                            break;
+                        }
+                    }
+
+                    if row == 0 {
+                        break;
+                    }
+                    row -= 1;
                 }
             }
             Side::West => {
-                if !is_travesable_cell(&Coordinates {
-                    row: position,
-                    col: 0,
-                }) {
-                    return Err(GameError::InvalidDroppingPosition);
-                }
-
-                for col in 1..BOARD_WIDTH {
-                    game_state = update_board_for_stone(
-                        game_state,
-                        &Coordinates {
-                            row: position,
-                            col: col,
-                        },
-                        &Coordinates {
-                            row: position,
-                            col: col - 1,
-                        },
-                        player,
-                    );
+                let mut col = 0;
+                let mut stop = false;
+                while col < BOARD_WIDTH && !stop {
+                    let position = Coordinates { row: position, col };
+                    match game_state.board.get_cell(&position) {
+                        // A cell bomb must explode.
+                        Cell::Bomb([_, _]) => {
+                            game_state.board =
+                                Board::explode_bomb(game_state.board, position.clone());
+                            stop = true;
+                        }
+                        // The stone is placed at the end if it's empty.
+                        Cell::Empty => {
+                            if position.is_opposite_cell(side.clone()) {
+                                game_state.board.change_cell(position, Cell::Stone(player));
+                                stop = true;
+                            }
+                        }
+                        // The stone is placed in the position previous to a block.
+                        Cell::Block => {
+                            if col > 0 {
+                                game_state.board.change_cell(
+                                    Coordinates {
+                                        row: position.row,
+                                        col: position.col - 1,
+                                    },
+                                    Cell::Stone(player),
+                                );
+                            } else {
+                                return Err(GameError::InvalidDroppingPosition);
+                            }
+                            stop = true;
+                        }
+                        // The stone is placed in the previous position of a stone.
+                        Cell::Stone(_) => {
+                            if col < BOARD_WIDTH - 1 {
+                                game_state.board.change_cell(
+                                    Coordinates {
+                                        row: position.row,
+                                        col: position.col - 1,
+                                    },
+                                    Cell::Stone(player),
+                                );
+                            } else {
+                                return Err(GameError::InvalidDroppingPosition);
+                            }
+                            stop = true;
+                        }
+                    }
+                    col += 1;
                 }
             }
         }
+
+        game_state.next_player = (game_state.next_player + 1) % NUM_OF_PLAYERS as u32;
+        game_state = Game::check_winner_player(game_state);
 
         Ok(game_state)
     }
