@@ -47,7 +47,7 @@ impl Cell {
     }
 
     /// Tells if a stone can traverse the cell.
-    fn is_travesable(&self) -> bool {
+    fn is_traversable(&self) -> bool {
         *self == Cell::Empty
     }
 
