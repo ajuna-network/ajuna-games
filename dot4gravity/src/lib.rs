@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use rand::Rng;
+use rand::{prelude::SliceRandom, Rng};
 
 #[cfg(test)]
 mod tests;
@@ -39,11 +39,7 @@ enum Cell {
 impl Cell {
     /// Tells if a cell is suitable for dropping a bomb.
     fn is_valid_for_dropping_bomb(&self) -> bool {
-        match self {
-            Cell::Empty => true,
-            Cell::Bomb([Some(_), None]) => true,
-            _ => false,
-        }
+        *self == Cell::Empty || self.is_bomb()
     }
 
     /// Tells if a stone can traverse the cell.
@@ -103,11 +99,17 @@ struct Board {
     cells: [[Cell; BOARD_WIDTH]; BOARD_HEIGHT],
 }
 
-impl Board {
-    pub fn new() -> Board {
+impl Default for Board {
+    fn default() -> Self {
         Board {
             cells: [[Cell::Empty; BOARD_WIDTH]; BOARD_HEIGHT],
         }
+    }
+}
+
+impl Board {
+    pub fn new() -> Board {
+        Board::default()
     }
 
     fn get_cell(&self, position: &Coordinates) -> Cell {
@@ -120,22 +122,19 @@ impl Board {
     }
 
     fn populate_with_random_blocks(mut board: Board, mut num_of_blocks: usize) -> Board {
-        let mut blocks = Vec::<Coordinates>::new();
         let mut rng = rand::thread_rng();
 
-        while num_of_blocks > 0 {
-            let block_coordinates = Coordinates {
-                row: rng.gen_range(0..BOARD_HEIGHT),
-                col: rng.gen_range(0..BOARD_WIDTH),
-            };
-            if !blocks.contains(&block_coordinates) {
-                num_of_blocks -= 1;
-                blocks.push(block_coordinates)
+        let mut board_coordinates = Vec::new();
+        for row in 0..BOARD_HEIGHT {
+            for col in 0..BOARD_HEIGHT {
+                board_coordinates.push(Coordinates { row, col });
             }
         }
-        for block_coordinates in blocks {
-            board.change_cell(block_coordinates.clone(), Cell::Block);
-        }
+        board_coordinates
+            .choose_multiple(&mut rng, NUM_OF_BLOCKS)
+            .cloned()
+            .for_each(|coordinates| board.change_cell(coordinates.clone(), Cell::Block));
+
         board
     }
 
@@ -151,7 +150,7 @@ impl Board {
             (-1, 1),
             (-1, 0),
         ];
-
+        // Collect the explodable cells around.
         offsets
             .iter()
             .map(|(row_offset, col_offset)| Coordinates {
@@ -164,7 +163,7 @@ impl Board {
                     && position.row >= 0
                     && position.col >= 0
                 {
-                    board.change_cell(position, Cell::Empty);
+                    board.change_cell(position, Cell::Empty)
                 }
             });
 

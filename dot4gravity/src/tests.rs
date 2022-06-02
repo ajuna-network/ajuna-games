@@ -620,7 +620,7 @@ fn should_play_a_game() {
     let player1 = 0;
     let player2 = 1;
 
-    // players1 drop bombs
+    // players1 drops bombs
     let player1_num_bombs = state.bombs[player1 as usize];
     let result = Game::drop_bomb(&mut state, Coordinates { row: 0, col: 0 }, player1);
     assert!(result.is_ok());
@@ -649,7 +649,7 @@ fn should_play_a_game() {
         "The player shouldn't have more bombs for dropping"
     );
 
-    // players2 drop bombs
+    // players2 drops bombs
     let player2_num_bombs = state.bombs[player2 as usize];
     let result = Game::drop_bomb(&mut state, Coordinates { row: 9, col: 0 }, player2);
     assert!(result.is_ok());
