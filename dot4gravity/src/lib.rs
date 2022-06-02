@@ -116,7 +116,7 @@ impl Board {
         self.cells[position.row][position.col]
     }
 
-    fn change_cell(&mut self, position: Coordinates, cell: Cell) {
+    fn update_cell(&mut self, position: Coordinates, cell: Cell) {
         self.cells[position.row][position.col] = cell;
         assert_eq!(self.cells[position.row][position.col], cell);
     }
@@ -133,7 +133,7 @@ impl Board {
         board_coordinates
             .choose_multiple(&mut rng, NUM_OF_BLOCKS)
             .cloned()
-            .for_each(|coordinates| board.change_cell(coordinates.clone(), Cell::Block));
+            .for_each(|coordinates| board.update_cell(coordinates.clone(), Cell::Block));
 
         board
     }
@@ -163,7 +163,7 @@ impl Board {
                     && position.row >= 0
                     && position.col >= 0
                 {
-                    board.change_cell(position, Cell::Empty)
+                    board.update_cell(position, Cell::Empty)
                 }
             });
 
@@ -309,7 +309,7 @@ impl Game {
             Cell::Empty => {
                 game_state
                     .board
-                    .change_cell(position, Cell::Bomb([Some(player), None]));
+                    .update_cell(position, Cell::Bomb([Some(player), None]));
                 game_state.bombs[player as usize] -= 1;
                 if game_state.is_all_bomb_dropped() {
                     game_state.change_game_phase(GamePhase::Play);
@@ -321,7 +321,7 @@ impl Game {
                 } else {
                     game_state
                         .board
-                        .change_cell(position, Cell::Bomb([Some(other_player), Some(player)]));
+                        .update_cell(position, Cell::Bomb([Some(other_player), Some(player)]));
                     game_state.bombs[player as usize] -= 1;
                     if game_state.is_all_bomb_dropped() {
                         game_state.change_game_phase(GamePhase::Play);
@@ -374,14 +374,14 @@ impl Game {
                         // The stone is placed at the end if it's empty.
                         Cell::Empty => {
                             if position.is_opposite_cell(side.clone()) {
-                                game_state.board.change_cell(position, Cell::Stone(player));
+                                game_state.board.update_cell(position, Cell::Stone(player));
                                 stop = true;
                             }
                         }
                         // The stone is placed in the position previous to a block.
                         Cell::Block => {
                             if row > 0 {
-                                game_state.board.change_cell(
+                                game_state.board.update_cell(
                                     Coordinates {
                                         row: position.row - 1,
                                         col: position.col,
@@ -396,7 +396,7 @@ impl Game {
                         // The stone is placed in the previous position of a stone.
                         Cell::Stone(_) => {
                             if row > 0 {
-                                game_state.board.change_cell(
+                                game_state.board.update_cell(
                                     Coordinates {
                                         row: position.row - 1,
                                         col: position.col,
@@ -427,14 +427,14 @@ impl Game {
                         // The stone is placed at the end if it's empty.
                         Cell::Empty => {
                             if position.is_opposite_cell(side.clone()) {
-                                game_state.board.change_cell(position, Cell::Stone(player));
+                                game_state.board.update_cell(position, Cell::Stone(player));
                                 break;
                             }
                         }
                         // The stone is placed in the position previous to a block.
                         Cell::Block => {
                             if col < BOARD_WIDTH - 1 {
-                                game_state.board.change_cell(
+                                game_state.board.update_cell(
                                     Coordinates {
                                         row: position.row,
                                         col: position.col + 1,
@@ -449,7 +449,7 @@ impl Game {
                         // The stone is placed in the previous position of a stone.
                         Cell::Stone(_) => {
                             if col < BOARD_WIDTH - 1 {
-                                game_state.board.change_cell(
+                                game_state.board.update_cell(
                                     Coordinates {
                                         row: position.row,
                                         col: position.col + 1,
@@ -484,14 +484,14 @@ impl Game {
                         // The stone is placed at the end if it's empty.
                         Cell::Empty => {
                             if position.is_opposite_cell(side.clone()) {
-                                game_state.board.change_cell(position, Cell::Stone(player));
+                                game_state.board.update_cell(position, Cell::Stone(player));
                                 break;
                             }
                         }
                         // The stone is placed in the position previous to a block.
                         Cell::Block => {
                             if row < BOARD_HEIGHT - 1 {
-                                game_state.board.change_cell(
+                                game_state.board.update_cell(
                                     Coordinates {
                                         row: position.row + 1,
                                         col: position.col,
@@ -506,7 +506,7 @@ impl Game {
                         // The stone is placed in the previous position of a stone.
                         Cell::Stone(_) => {
                             if row < BOARD_HEIGHT - 1 {
-                                game_state.board.change_cell(
+                                game_state.board.update_cell(
                                     Coordinates {
                                         row: position.row + 1,
                                         col: position.col,
@@ -541,14 +541,14 @@ impl Game {
                         // The stone is placed at the end if it's empty.
                         Cell::Empty => {
                             if position.is_opposite_cell(side.clone()) {
-                                game_state.board.change_cell(position, Cell::Stone(player));
+                                game_state.board.update_cell(position, Cell::Stone(player));
                                 stop = true;
                             }
                         }
                         // The stone is placed in the position previous to a block.
                         Cell::Block => {
                             if col > 0 {
-                                game_state.board.change_cell(
+                                game_state.board.update_cell(
                                     Coordinates {
                                         row: position.row,
                                         col: position.col - 1,
@@ -563,7 +563,7 @@ impl Game {
                         // The stone is placed in the previous position of a stone.
                         Cell::Stone(_) => {
                             if col < BOARD_WIDTH - 1 {
-                                game_state.board.change_cell(
+                                game_state.board.update_cell(
                                     Coordinates {
                                         row: position.row,
                                         col: position.col - 1,

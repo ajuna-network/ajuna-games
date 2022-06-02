@@ -46,7 +46,7 @@ fn board_cell_can_be_changed() {
         Cell::Empty,
         "Cell should be empty before change."
     );
-    board.change_cell(coords, Cell::Block);
+    board.update_cell(coords, Cell::Block);
     assert_eq!(
         board.get_cell(&coords),
         Cell::Block,
