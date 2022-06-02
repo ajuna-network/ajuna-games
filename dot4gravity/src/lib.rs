@@ -78,7 +78,7 @@ impl Coordinates {
         self.row < BOARD_WIDTH && self.col < BOARD_HEIGHT
     }
 
-    /// Tells if a cell is in the oposite of a side.
+    /// Tells if a cell is in the opposite of a side.
     fn is_opposite_cell(&self, side: Side) -> bool {
         match side {
             Side::North => self.row == BOARD_HEIGHT - 1,
