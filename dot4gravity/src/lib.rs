@@ -54,8 +54,7 @@ impl Cell {
     /// Tells if a cell is of type 'bomb'
     fn is_bomb(&self) -> bool {
         match self {
-            Cell::Bomb([Some(_), None]) => true,
-            Cell::Bomb([Some(_), Some(_)]) => true,
+            Cell::Bomb(_) => true,
             _ => false,
         }
     }
