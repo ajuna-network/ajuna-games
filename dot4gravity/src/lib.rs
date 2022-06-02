@@ -152,28 +152,21 @@ impl Board {
             (-1, 0),
         ];
 
-        // Collect the explodable cells around.
-        let explodable_cells_coords: Vec<Coordinates> = offsets
+        offsets
             .iter()
-            .map(|offset| {
-                (
-                    offset.0 + bomb_position.row as i8,
-                    offset.1 + bomb_position.col as i8,
-                )
+            .map(|(row_offset, col_offset)| Coordinates {
+                row: (row_offset + bomb_position.row as i8) as usize,
+                col: (col_offset + bomb_position.col as i8) as usize,
             })
-            .filter(|offset| offset.0 >= 0 && offset.1 >= 0)
-            .map(|offset| Coordinates {
-                row: offset.0 as usize,
-                col: offset.1 as usize,
-            })
-            .filter(|position| {
-                position.is_inside_board() && board.get_cell(&position).is_explodable()
-            })
-            .collect();
-
-        for position in explodable_cells_coords {
-            board.change_cell(position, Cell::Empty);
-        }
+            .for_each(|position| {
+                if position.is_inside_board()
+                    && board.get_cell(&position).is_explodable()
+                    && position.row >= 0
+                    && position.col >= 0
+                {
+                    board.change_cell(position, Cell::Empty);
+                }
+            });
 
         board
     }
