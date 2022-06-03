@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use rand::{prelude::SliceRandom, Rng};
+use rand::prelude::SliceRandom;
 
 #[cfg(test)]
 mod tests;
@@ -49,10 +49,7 @@ impl Cell {
 
     /// Tells if a cell is of type 'bomb'
     fn is_bomb(&self) -> bool {
-        match self {
-            Cell::Bomb(_) => true,
-            _ => false,
-        }
+        matches!(self, Cell::Bomb(_))
     }
 
     /// Tells if a cell must be cleared when it's affected by an explosion.
@@ -121,7 +118,7 @@ impl Board {
         assert_eq!(self.cells[position.row][position.col], cell);
     }
 
-    fn populate_with_random_blocks(mut board: Board, mut num_of_blocks: usize) -> Board {
+    fn populate_with_random_blocks(mut board: Board, num_of_blocks: usize) -> Board {
         let mut rng = rand::thread_rng();
 
         let mut board_coordinates = Vec::new();
@@ -131,9 +128,9 @@ impl Board {
             }
         }
         board_coordinates
-            .choose_multiple(&mut rng, NUM_OF_BLOCKS)
+            .choose_multiple(&mut rng, num_of_blocks)
             .cloned()
-            .for_each(|coordinates| board.update_cell(coordinates.clone(), Cell::Block));
+            .for_each(|coordinates| board.update_cell(coordinates, Cell::Block));
 
         board
     }
@@ -158,11 +155,7 @@ impl Board {
                 col: (col_offset + bomb_position.col as i8) as usize,
             })
             .for_each(|position| {
-                if position.is_inside_board()
-                    && board.get_cell(&position).is_explodable()
-                    && position.row >= 0
-                    && position.col >= 0
-                {
+                if position.is_inside_board() && board.get_cell(&position).is_explodable() {
                     board.update_cell(position, Cell::Empty)
                 }
             });
@@ -196,7 +189,7 @@ enum GameError {
 }
 
 #[derive(Clone, Debug)]
-struct GameState {
+pub struct GameState {
     /// Represents the game board.
     board: Board,
     /// Game mode.
@@ -216,59 +209,6 @@ impl GameState {
 
     fn change_game_phase(&mut self, phase: GamePhase) {
         self.phase = phase
-    }
-}
-
-#[derive(Clone, Debug)]
-struct MovingStone {
-    position: Coordinates,
-    side: Side,
-}
-
-impl MovingStone {
-    fn get_previous_position(&self) -> Result<Coordinates, GameError> {
-        match self.side {
-            Side::North => {
-                if self.position.row > 0 {
-                    Ok(Coordinates {
-                        row: self.position.row - 1,
-                        col: self.position.col,
-                    })
-                } else {
-                    Err(GameError::NoPreviousPosition)
-                }
-            }
-            Side::East => {
-                if self.position.col < BOARD_WIDTH - 1 {
-                    Ok(Coordinates {
-                        row: self.position.row,
-                        col: self.position.col + 1,
-                    })
-                } else {
-                    Err(GameError::NoPreviousPosition)
-                }
-            }
-            Side::South => {
-                if self.position.row < BOARD_WIDTH - 1 {
-                    Ok(Coordinates {
-                        row: self.position.row + 1,
-                        col: self.position.col,
-                    })
-                } else {
-                    Err(GameError::NoPreviousPosition)
-                }
-            }
-            Side::West => {
-                if self.position.col > 0 {
-                    Ok(Coordinates {
-                        row: self.position.row,
-                        col: self.position.col - 1,
-                    })
-                } else {
-                    Err(GameError::NoPreviousPosition)
-                }
-            }
-        }
     }
 }
 
@@ -367,8 +307,7 @@ impl Game {
                     match game_state.board.get_cell(&position) {
                         // A cell bomb must explode.
                         Cell::Bomb([_, _]) => {
-                            game_state.board =
-                                Board::explode_bomb(game_state.board, position.clone());
+                            game_state.board = Board::explode_bomb(game_state.board, position);
                             stop = true;
                         }
                         // The stone is placed at the end if it's empty.
@@ -414,14 +353,13 @@ impl Game {
             }
             Side::East => {
                 let mut col = BOARD_WIDTH - 1;
-                let mut stop = false;
+
                 loop {
                     let position = Coordinates { row: position, col };
                     match game_state.board.get_cell(&position) {
                         // A cell bomb must explode.
                         Cell::Bomb([_, _]) => {
-                            game_state.board =
-                                Board::explode_bomb(game_state.board, position.clone());
+                            game_state.board = Board::explode_bomb(game_state.board, position);
                             break;
                         }
                         // The stone is placed at the end if it's empty.
@@ -470,15 +408,13 @@ impl Game {
             }
             Side::South => {
                 let mut row = BOARD_HEIGHT - 1;
-                let mut stop = false;
 
                 loop {
                     let position = Coordinates { row, col: position };
                     match game_state.board.get_cell(&position) {
                         // A cell bomb must explode.
                         Cell::Bomb([_, _]) => {
-                            game_state.board =
-                                Board::explode_bomb(game_state.board, position.clone());
+                            game_state.board = Board::explode_bomb(game_state.board, position);
                             break;
                         }
                         // The stone is placed at the end if it's empty.
@@ -534,8 +470,7 @@ impl Game {
                     match game_state.board.get_cell(&position) {
                         // A cell bomb must explode.
                         Cell::Bomb([_, _]) => {
-                            game_state.board =
-                                Board::explode_bomb(game_state.board, position.clone());
+                            game_state.board = Board::explode_bomb(game_state.board, position);
                             stop = true;
                         }
                         // The stone is placed at the end if it's empty.
@@ -597,17 +532,14 @@ impl Game {
         for row in 0..BOARD_HEIGHT - 3 {
             for col in 0..BOARD_WIDTH {
                 let cell = board.get_cell(&Coordinates { row, col });
-                match cell {
-                    Cell::Stone(player) => {
-                        if cell == board.get_cell(&Coordinates { row: row + 1, col })
-                            && cell == board.get_cell(&Coordinates { row: row + 2, col })
-                            && cell == board.get_cell(&Coordinates { row: row + 3, col })
-                        {
-                            game_state.winner = Some(player);
-                            break;
-                        }
+                if let Cell::Stone(player) = cell {
+                    if cell == board.get_cell(&Coordinates { row: row + 1, col })
+                        && cell == board.get_cell(&Coordinates { row: row + 2, col })
+                        && cell == board.get_cell(&Coordinates { row: row + 3, col })
+                    {
+                        game_state.winner = Some(player);
+                        break;
                     }
-                    _ => {}
                 }
             }
         }
@@ -616,17 +548,14 @@ impl Game {
         for row in 0..BOARD_HEIGHT {
             for col in 0..BOARD_WIDTH - 3 {
                 let cell = board.get_cell(&Coordinates { row, col });
-                match cell {
-                    Cell::Stone(player) => {
-                        if cell == board.get_cell(&Coordinates { row, col: col + 1 })
-                            && cell == board.get_cell(&Coordinates { row, col: col + 2 })
-                            && cell == board.get_cell(&Coordinates { row, col: col + 3 })
-                        {
-                            game_state.winner = Some(player);
-                            break;
-                        }
+                if let Cell::Stone(player) = cell {
+                    if cell == board.get_cell(&Coordinates { row, col: col + 1 })
+                        && cell == board.get_cell(&Coordinates { row, col: col + 2 })
+                        && cell == board.get_cell(&Coordinates { row, col: col + 3 })
+                    {
+                        game_state.winner = Some(player);
+                        break;
                     }
-                    _ => {}
                 }
             }
         }
@@ -635,29 +564,26 @@ impl Game {
         for row in 3..BOARD_HEIGHT {
             for col in 0..BOARD_WIDTH - 3 {
                 let cell = board.get_cell(&Coordinates { row, col });
-                match cell {
-                    Cell::Stone(player) => {
-                        if cell
+                if let Cell::Stone(player) = cell {
+                    if cell
+                        == board.get_cell(&Coordinates {
+                            row: row - 1,
+                            col: col + 1,
+                        })
+                        && cell
                             == board.get_cell(&Coordinates {
-                                row: row - 1,
-                                col: col + 1,
+                                row: row - 2,
+                                col: col + 2,
                             })
-                            && cell
-                                == board.get_cell(&Coordinates {
-                                    row: row - 2,
-                                    col: col + 2,
-                                })
-                            && cell
-                                == board.get_cell(&Coordinates {
-                                    row: row - 3,
-                                    col: col + 3,
-                                })
-                        {
-                            game_state.winner = Some(player);
-                            break;
-                        }
+                        && cell
+                            == board.get_cell(&Coordinates {
+                                row: row - 3,
+                                col: col + 3,
+                            })
+                    {
+                        game_state.winner = Some(player);
+                        break;
                     }
-                    _ => {}
                 }
             }
         }
@@ -666,29 +592,26 @@ impl Game {
         for row in 0..BOARD_HEIGHT - 3 {
             for col in 0..BOARD_WIDTH - 3 {
                 let cell = board.get_cell(&Coordinates { row, col });
-                match cell {
-                    Cell::Stone(player) => {
-                        if cell
+                if let Cell::Stone(player) = cell {
+                    if cell
+                        == board.get_cell(&Coordinates {
+                            row: row + 1,
+                            col: col + 1,
+                        })
+                        && cell
                             == board.get_cell(&Coordinates {
-                                row: row + 1,
-                                col: col + 1,
+                                row: row + 2,
+                                col: col + 2,
                             })
-                            && cell
-                                == board.get_cell(&Coordinates {
-                                    row: row + 2,
-                                    col: col + 2,
-                                })
-                            && cell
-                                == board.get_cell(&Coordinates {
-                                    row: row + 3,
-                                    col: col + 3,
-                                })
-                        {
-                            game_state.winner = Some(player);
-                            break;
-                        }
+                        && cell
+                            == board.get_cell(&Coordinates {
+                                row: row + 3,
+                                col: col + 3,
+                            })
+                    {
+                        game_state.winner = Some(player);
+                        break;
                     }
-                    _ => {}
                 }
             }
         }
