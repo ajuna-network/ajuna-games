@@ -16,6 +16,9 @@
 
 use crate::*;
 
+const ALICE: u32 = 0;
+const BOB: u32 = 1;
+
 #[test]
 fn should_create_a_new_board() {
     fn is_empty(board: &Board) -> bool {
@@ -56,27 +59,27 @@ fn board_cell_can_be_changed() {
 
 #[test]
 fn should_create_new_game() {
-    let game_state = Game::new_game();
+    let game_state = Game::new_game(ALICE, BOB);
     assert_eq!(
         game_state.phase,
         GamePhase::Bomb,
         "The game should start in bomb phase"
     );
     assert_eq!(game_state.winner, None, "No player should have won yet");
-    assert_eq!(game_state.next_player, 0);
+    assert_eq!(game_state.next_player, ALICE);
     assert_eq!(game_state.bombs.len(), NUM_OF_PLAYERS);
     assert!(
         game_state
             .bombs
             .iter()
-            .all(|bombs| { *bombs == NUM_OF_BOMBS_PER_PLAYER }),
+            .all(|bombs| { *bombs.1 == NUM_OF_BOMBS_PER_PLAYER }),
         "Each player should have {NUM_OF_BOMBS_PER_PLAYER} bombs"
     );
 }
 
 #[test]
 fn a_board_in_a_new_game_should_contain_random_blocks() {
-    let state = Game::new_game();
+    let state = Game::new_game(ALICE, BOB);
     let mut blocks = 0;
 
     // Count all cells of type 'block' in board.
@@ -93,18 +96,18 @@ fn a_board_in_a_new_game_should_contain_random_blocks() {
 
 #[test]
 fn a_player_cannot_drop_bomb_in_play_phase() {
-    let mut game_state = Game::new_game();
+    let mut game_state = Game::new_game(ALICE, BOB);
     game_state.phase = GamePhase::Play;
-    let result = Game::drop_bomb(&mut game_state, Coordinates { row: 0, col: 0 }, 0);
+    let result = Game::drop_bomb(&mut game_state, Coordinates { row: 0, col: 0 }, ALICE);
     assert!(result.is_err());
     assert_eq!(result.unwrap_err(), GameError::DroppedBombDuringPlayPhase);
 }
 
 #[test]
 fn a_player_cannot_drop_bomb_if_already_dropped_all() {
-    let mut game_state = Game::new_game();
+    let mut game_state = Game::new_game(ALICE, BOB);
     game_state.board = Board::new();
-    game_state.bombs = [0, 0];
+    game_state.bombs = HashMap::from([(0, 0)]);
     let result = Game::drop_bomb(&mut game_state, Coordinates { row: 0, col: 0 }, 0);
     assert!(result.is_err());
     assert_eq!(result.unwrap_err(), GameError::NoMoreBombsAvailable);
@@ -112,71 +115,67 @@ fn a_player_cannot_drop_bomb_if_already_dropped_all() {
 
 #[test]
 fn a_player_drops_a_bomb() {
-    let mut game_state = Game::new_game();
+    let mut game_state = Game::new_game(ALICE, BOB);
     game_state.board = Board::new();
 
-    let player = 0;
     let bomb_position = Coordinates { row: 0, col: 0 };
-    let player_bombs = game_state.bombs[player as usize];
+    let player_bombs = game_state.bombs[&ALICE];
     assert_eq!(player_bombs, NUM_OF_BOMBS_PER_PLAYER);
 
-    let drop_bomb_result = Game::drop_bomb(&mut game_state, bomb_position.clone(), player);
+    let drop_bomb_result = Game::drop_bomb(&mut game_state, bomb_position.clone(), ALICE);
     assert!(drop_bomb_result.is_ok());
 
     assert_eq!(
-        game_state.bombs[player as usize],
+        game_state.bombs[&ALICE],
         player_bombs - 1,
         "The player should have one bomb less available for dropping"
     );
     assert_eq!(
         game_state.board.get_cell(&bomb_position),
-        Cell::Bomb([Some(player), None])
+        Cell::Bomb([Some(ALICE), None])
     )
 }
 
 #[test]
 fn a_cell_can_hold_one_or_more_bombs_from_different_players() {
-    let mut game_state = Game::new_game();
+    let mut game_state = Game::new_game(ALICE, BOB);
     game_state.board = Board::new();
     let bomb_position = Coordinates { row: 0, col: 0 };
-    let player1 = 0;
-    let player2 = 1;
 
-    let drop_bomb_result = Game::drop_bomb(&mut game_state, bomb_position.clone(), player1);
+    let drop_bomb_result = Game::drop_bomb(&mut game_state, bomb_position.clone(), ALICE);
     assert!(drop_bomb_result.is_ok());
 
     assert_eq!(
         game_state.board.get_cell(&bomb_position),
-        Cell::Bomb([Some(player1), None])
+        Cell::Bomb([Some(ALICE), None])
     );
 
-    let drop_bomb_result = Game::drop_bomb(&mut game_state, bomb_position.clone(), player2);
+    let drop_bomb_result = Game::drop_bomb(&mut game_state, bomb_position.clone(), BOB);
     assert!(drop_bomb_result.is_ok());
 
     assert_eq!(
         game_state.board.get_cell(&bomb_position),
-        Cell::Bomb([Some(player1), Some(player2)])
+        Cell::Bomb([Some(ALICE), Some(BOB)])
     );
 }
 
 #[test]
 fn a_bomb_cannot_be_placed_in_a_block_cell() {
-    let mut game_state = Game::new_game();
+    let mut game_state = Game::new_game(ALICE, BOB);
     game_state.board.cells[0][0] = Cell::Block;
-    let result = Game::drop_bomb(&mut game_state, Coordinates { row: 0, col: 0 }, 0);
+    let result = Game::drop_bomb(&mut game_state, Coordinates { row: 0, col: 0 }, ALICE);
     assert!(result.is_err());
     assert_eq!(result.unwrap_err(), GameError::InvalidBombPosition);
 }
 
 #[test]
 fn a_player_cannot_place_more_than_one_bomb_in_a_cell() {
-    let mut game_state = Game::new_game();
+    let mut game_state = Game::new_game(ALICE, BOB);
     game_state.board = Board::new();
     let position = Coordinates { row: 0, col: 0 };
-    let player = 0;
 
     // Drop the first bomb
-    let dropping_bomb_result = Game::drop_bomb(&mut game_state, position, player);
+    let dropping_bomb_result = Game::drop_bomb(&mut game_state, position, ALICE);
     assert!(
         dropping_bomb_result.is_ok(),
         "Dropping the first bomb should be OK"
@@ -187,7 +186,7 @@ fn a_player_cannot_place_more_than_one_bomb_in_a_cell() {
     );
 
     // Drop the second bomb
-    let dropping_bomb_result = Game::drop_bomb(&mut game_state, position, player);
+    let dropping_bomb_result = Game::drop_bomb(&mut game_state, position, ALICE);
     assert!(
         dropping_bomb_result.is_err(),
         "Dropping the second bomb should be Err"
@@ -200,7 +199,7 @@ fn a_player_cannot_place_more_than_one_bomb_in_a_cell() {
 
 #[test]
 fn a_game_can_change_game_phase() {
-    let game_state = Game::new_game();
+    let game_state = Game::new_game(ALICE, BOB);
     assert_eq!(game_state.phase, GamePhase::Bomb);
     let game_state = Game::change_game_phase(game_state, GamePhase::Play);
     assert_eq!(game_state.phase, GamePhase::Play);
@@ -210,8 +209,8 @@ fn a_game_can_change_game_phase() {
 
 #[test]
 fn a_player_cannot_drop_a_stone_out_of_turn() {
-    let state = Game::new_game();
-    let drop_stone_result = Game::drop_stone(state, 1, Side::North, 0);
+    let state = Game::new_game(ALICE, BOB);
+    let drop_stone_result = Game::drop_stone(state, BOB, Side::North, 0);
     assert!(drop_stone_result.is_err());
     assert_eq!(drop_stone_result.unwrap_err(), GameError::NotPlayerTurn);
 }
@@ -233,28 +232,26 @@ fn a_stone_dropped_from_north_side_should_move_until_it_reaches_an_obstacle() {
         [o, b, o, o, o, o, o, o, o, o],
     ];
 
-    let mut state = Game::new_game();
+    let mut state = Game::new_game(ALICE, BOB);
     state.board.cells = cells;
-    let player1 = 0;
-    let player2 = 1;
 
-    let state = Game::drop_stone(state, player1, Side::North, 0).unwrap();
+    let state = Game::drop_stone(state, ALICE, Side::North, 0).unwrap();
     assert_eq!(
         state.board.get_cell(&Coordinates { row: 9, col: 0 }),
-        Cell::Stone(player1)
+        Cell::Stone(ALICE)
     );
-    let state = Game::drop_stone(state, player2, Side::North, 1).unwrap();
+    let state = Game::drop_stone(state, BOB, Side::North, 1).unwrap();
     assert_eq!(
         state.board.get_cell(&Coordinates { row: 8, col: 1 }),
-        Cell::Stone(player2)
+        Cell::Stone(BOB)
     );
-    let state = Game::drop_stone(state, player1, Side::North, 2).unwrap();
+    let state = Game::drop_stone(state, ALICE, Side::North, 2).unwrap();
     assert_eq!(
         state.board.get_cell(&Coordinates { row: 0, col: 2 }),
-        Cell::Stone(player1)
+        Cell::Stone(ALICE)
     );
     assert_eq!(
-        Game::drop_stone(state, player2, Side::North, 3).unwrap_err(),
+        Game::drop_stone(state, BOB, Side::North, 3).unwrap_err(),
         GameError::InvalidDroppingPosition
     );
 }
@@ -277,28 +274,26 @@ fn a_stone_dropped_from_south_side_should_move_until_it_reaches_an_obstacle() {
         [o, o, o, b, o, o, o, o, o, o],
     ];
 
-    let mut state = Game::new_game();
+    let mut state = Game::new_game(ALICE, BOB);
     state.board.cells = cells;
-    let player1 = 0;
-    let player2 = 1;
 
-    let state = Game::drop_stone(state, player1, Side::South, 0).unwrap();
+    let state = Game::drop_stone(state, ALICE, Side::South, 0).unwrap();
     assert_eq!(
         state.board.get_cell(&Coordinates { row: 0, col: 0 }),
-        Cell::Stone(player1)
+        Cell::Stone(ALICE)
     );
-    let state = Game::drop_stone(state, player2, Side::South, 1).unwrap();
+    let state = Game::drop_stone(state, BOB, Side::South, 1).unwrap();
     assert_eq!(
         state.board.get_cell(&Coordinates { row: 1, col: 1 }),
-        Cell::Stone(player2)
+        Cell::Stone(BOB)
     );
-    let state = Game::drop_stone(state, player1, Side::South, 2).unwrap();
+    let state = Game::drop_stone(state, ALICE, Side::South, 2).unwrap();
     assert_eq!(
         state.board.get_cell(&Coordinates { row: 9, col: 2 }),
-        Cell::Stone(player1)
+        Cell::Stone(ALICE)
     );
     assert_eq!(
-        Game::drop_stone(state, player2, Side::South, 3).unwrap_err(),
+        Game::drop_stone(state, BOB, Side::South, 3).unwrap_err(),
         GameError::InvalidDroppingPosition
     );
 }
@@ -321,28 +316,26 @@ fn a_stone_dropped_from_east_side_should_move_until_it_reaches_an_obstacle() {
         [o, o, o, o, o, o, o, o, o, o],
     ];
 
-    let mut state = Game::new_game();
+    let mut state = Game::new_game(ALICE, BOB);
     state.board.cells = cells;
-    let player1 = 0;
-    let player2 = 1;
 
-    let state = Game::drop_stone(state, player1, Side::East, 0).unwrap();
+    let state = Game::drop_stone(state, ALICE, Side::East, 0).unwrap();
     assert_eq!(
         state.board.get_cell(&Coordinates { row: 0, col: 0 }),
-        Cell::Stone(player1)
+        Cell::Stone(ALICE)
     );
-    let state = Game::drop_stone(state, player2, Side::East, 1).unwrap();
+    let state = Game::drop_stone(state, BOB, Side::East, 1).unwrap();
     assert_eq!(
         state.board.get_cell(&Coordinates { row: 1, col: 1 }),
-        Cell::Stone(player2)
+        Cell::Stone(BOB)
     );
-    let state = Game::drop_stone(state, player1, Side::East, 2).unwrap();
+    let state = Game::drop_stone(state, ALICE, Side::East, 2).unwrap();
     assert_eq!(
         state.board.get_cell(&Coordinates { row: 2, col: 9 }),
-        Cell::Stone(player1)
+        Cell::Stone(ALICE)
     );
     assert_eq!(
-        Game::drop_stone(state, player2, Side::East, 3).unwrap_err(),
+        Game::drop_stone(state, BOB, Side::East, 3).unwrap_err(),
         GameError::InvalidDroppingPosition
     );
 }
@@ -364,28 +357,26 @@ fn a_stone_dropped_from_west_side_should_move_until_it_reaches_an_obstacle() {
         [o, o, o, o, o, o, o, o, o, o],
     ];
 
-    let mut state = Game::new_game();
+    let mut state = Game::new_game(ALICE, BOB);
     state.board.cells = cells;
-    let player1 = 0;
-    let player2 = 1;
 
-    let state = Game::drop_stone(state, player1, Side::West, 0).unwrap();
+    let state = Game::drop_stone(state, ALICE, Side::West, 0).unwrap();
     assert_eq!(
         state.board.get_cell(&Coordinates { row: 0, col: 9 }),
-        Cell::Stone(player1)
+        Cell::Stone(ALICE)
     );
-    let state = Game::drop_stone(state, player2, Side::West, 1).unwrap();
+    let state = Game::drop_stone(state, BOB, Side::West, 1).unwrap();
     assert_eq!(
         state.board.get_cell(&Coordinates { row: 1, col: 8 }),
-        Cell::Stone(player2)
+        Cell::Stone(BOB)
     );
-    let state = Game::drop_stone(state, player1, Side::West, 2).unwrap();
+    let state = Game::drop_stone(state, ALICE, Side::West, 2).unwrap();
     assert_eq!(
         state.board.get_cell(&Coordinates { row: 2, col: 0 }),
-        Cell::Stone(player1)
+        Cell::Stone(ALICE)
     );
     assert_eq!(
-        Game::drop_stone(state, player2, Side::West, 3).unwrap_err(),
+        Game::drop_stone(state, BOB, Side::West, 3).unwrap_err(),
         GameError::InvalidDroppingPosition
     );
 }
@@ -397,7 +388,7 @@ fn a_stone_should_explode_a_bomb_when_passing_through() {
     let x = Cell::Stone(0);
     let l = Cell::Block;
 
-    let mut state = Game::new_game();
+    let mut state = Game::new_game(ALICE, BOB);
     state.board.cells = [
         [o, o, o, o, o, o, o, o, b, o],
         [o, o, o, o, o, o, o, o, o, o],
@@ -411,7 +402,7 @@ fn a_stone_should_explode_a_bomb_when_passing_through() {
         [o, o, o, o, b, o, o, o, o, o],
     ];
 
-    let dropping_stone_result = Game::drop_stone(state.clone(), 0, Side::North, 5);
+    let dropping_stone_result = Game::drop_stone(state.clone(), ALICE, Side::North, 5);
     assert!(dropping_stone_result.is_ok());
     state = dropping_stone_result.unwrap();
 
@@ -439,7 +430,7 @@ fn a_stone_should_explode_a_bomb_when_passing_through() {
         Cell::Bomb([Some(0), Some(1)])
     );
 
-    let dropping_stone_result = Game::drop_stone(state.clone(), 1, Side::North, 8);
+    let dropping_stone_result = Game::drop_stone(state.clone(), BOB, Side::North, 8);
     assert!(dropping_stone_result.is_ok());
     state = dropping_stone_result.unwrap();
     assert_eq!(
@@ -447,7 +438,7 @@ fn a_stone_should_explode_a_bomb_when_passing_through() {
         Cell::Empty
     );
 
-    let dropping_stone_result = Game::drop_stone(state.clone(), 0, Side::East, 7);
+    let dropping_stone_result = Game::drop_stone(state.clone(), ALICE, Side::East, 7);
     assert!(dropping_stone_result.is_ok());
     state = dropping_stone_result.unwrap();
     assert_eq!(
@@ -455,7 +446,7 @@ fn a_stone_should_explode_a_bomb_when_passing_through() {
         Cell::Empty
     );
 
-    let dropping_stone_result = Game::drop_stone(state.clone(), 1, Side::South, 4);
+    let dropping_stone_result = Game::drop_stone(state.clone(), BOB, Side::South, 4);
     assert!(dropping_stone_result.is_ok());
     state = dropping_stone_result.unwrap();
     assert_eq!(
@@ -463,7 +454,7 @@ fn a_stone_should_explode_a_bomb_when_passing_through() {
         Cell::Empty
     );
 
-    let dropping_stone_result = Game::drop_stone(state.clone(), 0, Side::South, 4);
+    let dropping_stone_result = Game::drop_stone(state.clone(), ALICE, Side::South, 4);
     assert!(dropping_stone_result.is_ok());
     state = dropping_stone_result.unwrap();
     assert_eq!(
@@ -474,11 +465,10 @@ fn a_stone_should_explode_a_bomb_when_passing_through() {
 
 #[test]
 fn a_player_wins_when_has_a_four_stone_vertical_row() {
-    let player = 0;
     let o = Cell::Empty;
-    let s = Cell::Stone(player);
+    let s = Cell::Stone(ALICE);
 
-    let mut state = Game::new_game();
+    let mut state = Game::new_game(ALICE, BOB);
     state.board.cells = [
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
@@ -494,16 +484,15 @@ fn a_player_wins_when_has_a_four_stone_vertical_row() {
 
     state = Game::check_winner_player(state);
     assert!(state.winner.is_some());
-    assert_eq!(state.winner.unwrap(), player);
+    assert_eq!(state.winner.unwrap(), ALICE);
 }
 
 #[test]
 fn a_player_wins_when_has_a_four_stone_horizontal_row() {
-    let player = 0;
     let o = Cell::Empty;
-    let s = Cell::Stone(player);
+    let s = Cell::Stone(ALICE);
 
-    let mut state = Game::new_game();
+    let mut state = Game::new_game(ALICE, BOB);
     state.board.cells = [
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
@@ -519,16 +508,15 @@ fn a_player_wins_when_has_a_four_stone_horizontal_row() {
 
     state = Game::check_winner_player(state);
     assert!(state.winner.is_some());
-    assert_eq!(state.winner.unwrap(), player);
+    assert_eq!(state.winner.unwrap(), ALICE);
 }
 
 #[test]
 fn a_player_wins_when_has_a_four_stone_ascending_diagonal_row() {
-    let player = 0;
     let o = Cell::Empty;
-    let s = Cell::Stone(player);
+    let s = Cell::Stone(ALICE);
 
-    let mut state = Game::new_game();
+    let mut state = Game::new_game(ALICE, BOB);
     state.board.cells = [
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
@@ -544,16 +532,15 @@ fn a_player_wins_when_has_a_four_stone_ascending_diagonal_row() {
 
     state = Game::check_winner_player(state);
     assert!(state.winner.is_some());
-    assert_eq!(state.winner.unwrap(), player);
+    assert_eq!(state.winner.unwrap(), ALICE);
 }
 
 #[test]
 fn a_player_wins_when_has_a_four_stone_descending_diagonal_row() {
-    let player = 0;
     let o = Cell::Empty;
-    let s = Cell::Stone(player);
+    let s = Cell::Stone(ALICE);
 
-    let mut state = Game::new_game();
+    let mut state = Game::new_game(ALICE, BOB);
     state.board.cells = [
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
@@ -569,19 +556,17 @@ fn a_player_wins_when_has_a_four_stone_descending_diagonal_row() {
 
     state = Game::check_winner_player(state);
     assert!(state.winner.is_some());
-    assert_eq!(state.winner.unwrap(), player);
+    assert_eq!(state.winner.unwrap(), ALICE);
 }
 
 #[test]
 fn no_player_wins_for_less_than_four_in_a_row_stones() {
-    let player1 = 0;
-    let player2 = 1;
     let o = Cell::Empty;
     let b = Cell::Block;
-    let r = Cell::Stone(player1);
-    let m = Cell::Stone(player2);
+    let r = Cell::Stone(ALICE);
+    let m = Cell::Stone(BOB);
 
-    let mut state = Game::new_game();
+    let mut state = Game::new_game(ALICE, BOB);
     state.board.cells = [
         [o, r, o, o, o, o, o, o, m, o],
         [m, o, o, o, o, o, o, o, o, o],
@@ -604,7 +589,7 @@ fn should_play_a_game() {
     let o = Cell::Empty;
     let b = Cell::Block;
 
-    let mut state = Game::new_game();
+    let mut state = Game::new_game(ALICE, BOB);
     state.board.cells = [
         [o, o, o, o, o, o, o, o, b, o],
         [b, o, o, o, o, o, o, o, o, o],
@@ -617,31 +602,29 @@ fn should_play_a_game() {
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
     ];
-    let player1 = 0;
-    let player2 = 1;
 
     // players1 drops bombs
-    let player1_num_bombs = state.bombs[player1 as usize];
-    let result = Game::drop_bomb(&mut state, Coordinates { row: 0, col: 0 }, player1);
+    let player1_num_bombs = state.bombs[&ALICE];
+    let result = Game::drop_bomb(&mut state, Coordinates { row: 0, col: 0 }, ALICE);
     assert!(result.is_ok());
-    assert_eq!(state.bombs[player1 as usize], player1_num_bombs - 1);
+    assert_eq!(state.bombs[&ALICE], player1_num_bombs - 1);
 
-    let dropping_result = Game::drop_bomb(&mut state, Coordinates { row: 0, col: 0 }, player1);
+    let dropping_result = Game::drop_bomb(&mut state, Coordinates { row: 0, col: 0 }, ALICE);
     assert!(
         dropping_result.is_err(),
         "Player cannot drop two bombs in the same position"
     );
-    assert_eq!(state.bombs[player1 as usize], player1_num_bombs - 1);
+    assert_eq!(state.bombs[&ALICE], player1_num_bombs - 1);
 
-    let result = Game::drop_bomb(&mut state, Coordinates { row: 9, col: 9 }, player1);
+    let result = Game::drop_bomb(&mut state, Coordinates { row: 9, col: 9 }, ALICE);
     assert!(result.is_ok());
-    assert_eq!(state.bombs[player1 as usize], player1_num_bombs - 2);
+    assert_eq!(state.bombs[&ALICE], player1_num_bombs - 2);
 
-    let result = Game::drop_bomb(&mut state, Coordinates { row: 7, col: 7 }, player1);
+    let result = Game::drop_bomb(&mut state, Coordinates { row: 7, col: 7 }, ALICE);
     assert!(result.is_ok());
-    assert_eq!(state.bombs[player1 as usize], player1_num_bombs - 3);
+    assert_eq!(state.bombs[&ALICE], player1_num_bombs - 3);
 
-    let result = Game::drop_bomb(&mut state, Coordinates { row: 6, col: 8 }, player1);
+    let result = Game::drop_bomb(&mut state, Coordinates { row: 6, col: 8 }, ALICE);
     assert!(result.is_err());
     assert_eq!(
         result.unwrap_err(),
@@ -650,21 +633,21 @@ fn should_play_a_game() {
     );
 
     // players2 drops bombs
-    let player2_num_bombs = state.bombs[player2 as usize];
-    let result = Game::drop_bomb(&mut state, Coordinates { row: 9, col: 0 }, player2);
+    let player2_num_bombs = state.bombs[&BOB];
+    let result = Game::drop_bomb(&mut state, Coordinates { row: 9, col: 0 }, BOB);
     assert!(result.is_ok());
-    assert_eq!(state.bombs[player2 as usize], player2_num_bombs - 1);
+    assert_eq!(state.bombs[&BOB], player2_num_bombs - 1);
 
-    let result = Game::drop_bomb(&mut state, Coordinates { row: 9, col: 9 }, player2);
+    let result = Game::drop_bomb(&mut state, Coordinates { row: 9, col: 9 }, BOB);
     assert!(
         result.is_ok(),
         "A cell should hold bombs of different players"
     );
-    assert_eq!(state.bombs[player2 as usize], player2_num_bombs - 2);
+    assert_eq!(state.bombs[&BOB], player2_num_bombs - 2);
 
-    let result = Game::drop_bomb(&mut state, Coordinates { row: 9, col: 3 }, player2);
+    let result = Game::drop_bomb(&mut state, Coordinates { row: 9, col: 3 }, BOB);
     assert!(result.is_ok());
-    assert_eq!(state.bombs[player2 as usize], player2_num_bombs - 3);
+    assert_eq!(state.bombs[&BOB], player2_num_bombs - 3);
 
     assert_eq!(
         state.phase,
@@ -672,11 +655,11 @@ fn should_play_a_game() {
         "The game should be in play phase after all bombs have been deployed"
     );
 
-    let dropping_result = Game::drop_stone(state.clone(), player2, Side::North, 0);
+    let dropping_result = Game::drop_stone(state.clone(), BOB, Side::North, 0);
     assert!(dropping_result.is_err());
     assert_eq!(dropping_result.unwrap_err(), GameError::NotPlayerTurn);
 
-    let dropping_result = Game::drop_stone(state.clone(), player1, Side::North, 0);
+    let dropping_result = Game::drop_stone(state.clone(), ALICE, Side::North, 0);
     assert!(dropping_result.is_ok());
     state = dropping_result.unwrap();
     assert_eq!(
@@ -684,14 +667,14 @@ fn should_play_a_game() {
         Cell::Empty
     );
 
-    state = Game::drop_stone(state.clone(), player2, Side::North, 2).unwrap();
-    state = Game::drop_stone(state.clone(), player1, Side::South, 8).unwrap();
-    state = Game::drop_stone(state.clone(), player2, Side::North, 2).unwrap();
-    state = Game::drop_stone(state.clone(), player1, Side::South, 8).unwrap();
-    state = Game::drop_stone(state.clone(), player2, Side::North, 2).unwrap();
+    state = Game::drop_stone(state.clone(), BOB, Side::North, 2).unwrap();
+    state = Game::drop_stone(state.clone(), ALICE, Side::South, 8).unwrap();
+    state = Game::drop_stone(state.clone(), BOB, Side::North, 2).unwrap();
+    state = Game::drop_stone(state.clone(), ALICE, Side::South, 8).unwrap();
+    state = Game::drop_stone(state.clone(), BOB, Side::North, 2).unwrap();
 
     // player 1 explodes bomb on 9,3 and player 2 loses stones on 9,2 and 8,2
-    state = Game::drop_stone(state.clone(), player1, Side::North, 3).unwrap();
+    state = Game::drop_stone(state.clone(), ALICE, Side::North, 3).unwrap();
     assert_eq!(
         state.board.get_cell(&Coordinates { row: 9, col: 2 }),
         Cell::Empty
@@ -701,14 +684,14 @@ fn should_play_a_game() {
         Cell::Empty
     );
 
-    state = Game::drop_stone(state.clone(), player2, Side::North, 2).unwrap();
-    state = Game::drop_stone(state.clone(), player1, Side::South, 8).unwrap();
-    state = Game::drop_stone(state.clone(), player2, Side::North, 2).unwrap();
+    state = Game::drop_stone(state.clone(), BOB, Side::North, 2).unwrap();
+    state = Game::drop_stone(state.clone(), ALICE, Side::South, 8).unwrap();
+    state = Game::drop_stone(state.clone(), BOB, Side::North, 2).unwrap();
 
     // No player has won yet.
     assert!(state.winner.is_none());
-    state = Game::drop_stone(state.clone(), player1, Side::South, 8).unwrap();
+    state = Game::drop_stone(state.clone(), ALICE, Side::South, 8).unwrap();
 
     assert!(state.winner.is_some());
-    assert_eq!(state.winner.unwrap(), player1);
+    assert_eq!(state.winner.unwrap(), ALICE);
 }
