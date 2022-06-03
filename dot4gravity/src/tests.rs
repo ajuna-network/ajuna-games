@@ -75,6 +75,15 @@ fn should_create_new_game() {
             .all(|bombs| { *bombs.1 == NUM_OF_BOMBS_PER_PLAYER }),
         "Each player should have {NUM_OF_BOMBS_PER_PLAYER} bombs"
     );
+
+    assert!(
+        game_state.is_player_in_game(&ALICE),
+        "Player Alice should be in the game"
+    );
+    assert!(
+        game_state.is_player_in_game(&BOB),
+        "Player Bob should be in the game"
+    );
 }
 
 #[test]

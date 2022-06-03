@@ -207,6 +207,10 @@ impl GameState {
     fn change_game_phase(&mut self, phase: GamePhase) {
         self.phase = phase
     }
+
+    pub fn is_player_in_game(&self, player: &Player) -> bool {
+        self.bombs.contains_key(player)
+    }
 }
 
 pub struct Game;
