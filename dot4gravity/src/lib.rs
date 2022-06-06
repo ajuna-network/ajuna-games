@@ -14,9 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::HashMap;
-
 use rand::prelude::SliceRandom;
+
+use frame_support::{pallet_prelude::MaxEncodedLen, RuntimeDebug, RuntimeDebugNoBound};
+use scale_info::TypeInfo;
+use sp_core::{Decode, Encode};
 
 #[cfg(test)]
 mod tests;
@@ -24,13 +26,13 @@ mod tests;
 const BOARD_WIDTH: usize = 10;
 const BOARD_HEIGHT: usize = 10;
 const NUM_OF_PLAYERS: usize = 2;
-const NUM_OF_BOMBS_PER_PLAYER: usize = 3;
+const NUM_OF_BOMBS_PER_PLAYER: u8 = 3;
 const NUM_OF_BLOCKS: usize = 10;
 
 type Player = u32;
 
 /// Represents a cell of the board.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebug)]
 enum Cell {
     Empty,
     Bomb([Option<Player>; NUM_OF_PLAYERS]),
@@ -88,7 +90,8 @@ pub enum Side {
     West,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+
 pub struct Board {
     cells: [[Cell; BOARD_WIDTH]; BOARD_HEIGHT],
 }
@@ -161,7 +164,7 @@ impl Board {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen)]
 pub enum GamePhase {
     /// Not turn based. The players place bombs during this phase.
     Bomb,
@@ -185,7 +188,7 @@ pub enum GameError {
     NoPreviousPosition,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, RuntimeDebug, MaxEncodedLen)]
 pub struct GameState {
     /// Represents the game board.
     pub board: Board,
@@ -196,12 +199,12 @@ pub struct GameState {
     /// Next player turn.
     pub next_player: Player,
     /// Number of bombs available for each player.
-    pub bombs: HashMap<Player, usize>,
+    pub bombs: [(Player, u8); NUM_OF_PLAYERS],
 }
 
 impl GameState {
     fn is_all_bomb_dropped(&self) -> bool {
-        self.bombs.iter().all(|bombs| *bombs.1 == 0usize)
+        self.bombs.iter().all(|(_, bombs)| *bombs == 0)
     }
 
     fn change_game_phase(&mut self, phase: GamePhase) {
@@ -209,7 +212,23 @@ impl GameState {
     }
 
     pub fn is_player_in_game(&self, player: &Player) -> bool {
-        self.bombs.contains_key(player)
+        self.bombs.iter().any(|(p, _)| *p == *player)
+    }
+
+    pub fn get_player_bombs(&self, player: &Player) -> Option<u8> {
+        let found = self.bombs.iter().find(|(p, _)| *p == *player);
+        if found.is_some() {
+            return Some(found.unwrap().1);
+        }
+        return None;
+    }
+
+    pub fn decrease_player_bombs(&mut self, player: &Player) {
+        for (p, bombs) in self.bombs.iter_mut() {
+            if *p == *player {
+                *bombs -= 1;
+            }
+        }
     }
 }
 
@@ -223,10 +242,10 @@ impl Game {
             phase: GamePhase::Bomb,
             winner: None,
             next_player: player1,
-            bombs: HashMap::from([
+            bombs: [
                 (player1, NUM_OF_BOMBS_PER_PLAYER),
                 (player2, NUM_OF_BOMBS_PER_PLAYER),
-            ]),
+            ],
         }
     }
 
@@ -239,7 +258,7 @@ impl Game {
         if game_state.phase == GamePhase::Play {
             return Err(GameError::DroppedBombDuringPlayPhase);
         }
-        if game_state.bombs[&player] == 0 {
+        if game_state.get_player_bombs(&player).unwrap() == 0 {
             return Err(GameError::NoMoreBombsAvailable);
         }
         if !game_state
@@ -254,7 +273,7 @@ impl Game {
                 game_state
                     .board
                     .update_cell(position, Cell::Bomb([Some(player), None]));
-                *game_state.bombs.get_mut(&player).unwrap() -= 1;
+                game_state.decrease_player_bombs(&player);
                 if game_state.is_all_bomb_dropped() {
                     game_state.change_game_phase(GamePhase::Play);
                 }
@@ -266,7 +285,7 @@ impl Game {
                     game_state
                         .board
                         .update_cell(position, Cell::Bomb([Some(other_player), Some(player)]));
-                    *game_state.bombs.get_mut(&player).unwrap() -= 1;
+                    game_state.decrease_player_bombs(&player);
                     if game_state.is_all_bomb_dropped() {
                         game_state.change_game_phase(GamePhase::Play);
                     }

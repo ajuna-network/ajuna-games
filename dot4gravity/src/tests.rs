@@ -72,7 +72,7 @@ fn should_create_new_game() {
         game_state
             .bombs
             .iter()
-            .all(|bombs| { *bombs.1 == NUM_OF_BOMBS_PER_PLAYER }),
+            .all(|(_, bombs)| { *bombs == NUM_OF_BOMBS_PER_PLAYER }),
         "Each player should have {NUM_OF_BOMBS_PER_PLAYER} bombs"
     );
 
@@ -116,7 +116,7 @@ fn a_player_cannot_drop_bomb_in_play_phase() {
 fn a_player_cannot_drop_bomb_if_already_dropped_all() {
     let mut game_state = Game::new_game(ALICE, BOB);
     game_state.board = Board::new();
-    game_state.bombs = HashMap::from([(0, 0)]);
+    game_state.bombs = [(ALICE, 0), (BOB, 0)];
     let result = Game::drop_bomb(&mut game_state, Coordinates { row: 0, col: 0 }, 0);
     assert!(result.is_err());
     assert_eq!(result.unwrap_err(), GameError::NoMoreBombsAvailable);
@@ -128,15 +128,15 @@ fn a_player_drops_a_bomb() {
     game_state.board = Board::new();
 
     let bomb_position = Coordinates { row: 0, col: 0 };
-    let player_bombs = game_state.bombs[&ALICE];
+    let player_bombs = game_state.get_player_bombs(&ALICE).unwrap();
     assert_eq!(player_bombs, NUM_OF_BOMBS_PER_PLAYER);
 
     let drop_bomb_result = Game::drop_bomb(&mut game_state, bomb_position.clone(), ALICE);
     assert!(drop_bomb_result.is_ok());
 
     assert_eq!(
-        game_state.bombs[&ALICE],
-        player_bombs - 1,
+        game_state.get_player_bombs(&ALICE).unwrap(),
+        player_bombs - 1u8,
         "The player should have one bomb less available for dropping"
     );
     assert_eq!(
@@ -613,25 +613,37 @@ fn should_play_a_game() {
     ];
 
     // players1 drops bombs
-    let player1_num_bombs = state.bombs[&ALICE];
+    let player1_num_bombs = state.get_player_bombs(&ALICE).unwrap();
     let result = Game::drop_bomb(&mut state, Coordinates { row: 0, col: 0 }, ALICE);
     assert!(result.is_ok());
-    assert_eq!(state.bombs[&ALICE], player1_num_bombs - 1);
+    assert_eq!(
+        state.get_player_bombs(&ALICE).unwrap(),
+        player1_num_bombs - 1
+    );
 
     let dropping_result = Game::drop_bomb(&mut state, Coordinates { row: 0, col: 0 }, ALICE);
     assert!(
         dropping_result.is_err(),
         "Player cannot drop two bombs in the same position"
     );
-    assert_eq!(state.bombs[&ALICE], player1_num_bombs - 1);
+    assert_eq!(
+        state.get_player_bombs(&ALICE).unwrap(),
+        player1_num_bombs - 1
+    );
 
     let result = Game::drop_bomb(&mut state, Coordinates { row: 9, col: 9 }, ALICE);
     assert!(result.is_ok());
-    assert_eq!(state.bombs[&ALICE], player1_num_bombs - 2);
+    assert_eq!(
+        state.get_player_bombs(&ALICE).unwrap(),
+        player1_num_bombs - 2
+    );
 
     let result = Game::drop_bomb(&mut state, Coordinates { row: 7, col: 7 }, ALICE);
     assert!(result.is_ok());
-    assert_eq!(state.bombs[&ALICE], player1_num_bombs - 3);
+    assert_eq!(
+        state.get_player_bombs(&ALICE).unwrap(),
+        player1_num_bombs - 3
+    );
 
     let result = Game::drop_bomb(&mut state, Coordinates { row: 6, col: 8 }, ALICE);
     assert!(result.is_err());
@@ -642,21 +654,21 @@ fn should_play_a_game() {
     );
 
     // players2 drops bombs
-    let player2_num_bombs = state.bombs[&BOB];
+    let player2_num_bombs = state.get_player_bombs(&BOB).unwrap();
     let result = Game::drop_bomb(&mut state, Coordinates { row: 9, col: 0 }, BOB);
     assert!(result.is_ok());
-    assert_eq!(state.bombs[&BOB], player2_num_bombs - 1);
+    assert_eq!(state.get_player_bombs(&BOB).unwrap(), player2_num_bombs - 1);
 
     let result = Game::drop_bomb(&mut state, Coordinates { row: 9, col: 9 }, BOB);
     assert!(
         result.is_ok(),
         "A cell should hold bombs of different players"
     );
-    assert_eq!(state.bombs[&BOB], player2_num_bombs - 2);
+    assert_eq!(state.get_player_bombs(&BOB).unwrap(), player2_num_bombs - 2);
 
     let result = Game::drop_bomb(&mut state, Coordinates { row: 9, col: 3 }, BOB);
     assert!(result.is_ok());
-    assert_eq!(state.bombs[&BOB], player2_num_bombs - 3);
+    assert_eq!(state.get_player_bombs(&BOB).unwrap(), player2_num_bombs - 3);
 
     assert_eq!(
         state.phase,
