@@ -34,8 +34,8 @@ fn should_create_a_new_board() {
     }
 
     let board = Board::new();
-    assert_eq!(board.cells.len(), BOARD_HEIGHT);
-    assert_eq!(board.cells[0].len(), BOARD_WIDTH);
+    assert_eq!(board.cells.len(), BOARD_HEIGHT as usize);
+    assert_eq!(board.cells[0].len(), BOARD_WIDTH as usize);
     assert!(is_empty(&board))
 }
 

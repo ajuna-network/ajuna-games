@@ -23,8 +23,8 @@ use sp_core::{Decode, Encode};
 #[cfg(test)]
 mod tests;
 
-const BOARD_WIDTH: usize = 10;
-const BOARD_HEIGHT: usize = 10;
+const BOARD_WIDTH: u8 = 10;
+const BOARD_HEIGHT: u8 = 10;
 const NUM_OF_PLAYERS: usize = 2;
 const NUM_OF_BOMBS_PER_PLAYER: u8 = 3;
 const NUM_OF_BLOCKS: usize = 10;
@@ -58,10 +58,10 @@ impl Cell {
 }
 
 /// Coordinates for a cell in the board.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
 pub struct Coordinates {
-    row: usize,
-    col: usize,
+    pub row: u8,
+    pub col: u8,
 }
 
 impl Coordinates {
@@ -82,7 +82,7 @@ impl Coordinates {
 }
 
 /// Sides of the board from which a player can drop a stone.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
 pub enum Side {
     North,
     East,
@@ -93,13 +93,13 @@ pub enum Side {
 #[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebug)]
 
 pub struct Board {
-    cells: [[Cell; BOARD_WIDTH]; BOARD_HEIGHT],
+    cells: [[Cell; BOARD_WIDTH as usize]; BOARD_HEIGHT as usize],
 }
 
 impl Default for Board {
     fn default() -> Self {
         Board {
-            cells: [[Cell::Empty; BOARD_WIDTH]; BOARD_HEIGHT],
+            cells: [[Cell::Empty; BOARD_WIDTH as usize]; BOARD_HEIGHT as usize],
         }
     }
 }
@@ -110,12 +110,15 @@ impl Board {
     }
 
     fn get_cell(&self, position: &Coordinates) -> Cell {
-        self.cells[position.row][position.col]
+        self.cells[position.row as usize][position.col as usize]
     }
 
     fn update_cell(&mut self, position: Coordinates, cell: Cell) {
-        self.cells[position.row][position.col] = cell;
-        assert_eq!(self.cells[position.row][position.col], cell);
+        self.cells[position.row as usize][position.col as usize] = cell;
+        assert_eq!(
+            self.cells[position.row as usize][position.col as usize],
+            cell
+        );
     }
 
     fn populate_with_random_blocks(mut board: Board, num_of_blocks: usize) -> Board {
@@ -151,8 +154,8 @@ impl Board {
         offsets
             .iter()
             .map(|(row_offset, col_offset)| Coordinates {
-                row: (row_offset + bomb_position.row as i8) as usize,
-                col: (col_offset + bomb_position.col as i8) as usize,
+                row: (row_offset + bomb_position.row as i8) as u8,
+                col: (col_offset + bomb_position.col as i8) as u8,
             })
             .for_each(|position| {
                 if position.is_inside_board() && board.get_cell(&position).is_explodable() {
@@ -268,7 +271,7 @@ impl Game {
         {
             return Err(GameError::InvalidBombPosition);
         }
-        match game_state.board.cells[position.row][position.col] {
+        match game_state.board.cells[position.row as usize][position.col as usize] {
             Cell::Empty => {
                 game_state
                     .board
@@ -311,7 +314,7 @@ impl Game {
         mut game_state: GameState,
         player: Player,
         side: Side,
-        position: usize,
+        position: u8,
     ) -> Result<GameState, GameError> {
         if position >= BOARD_HEIGHT || position >= BOARD_WIDTH {
             return Err(GameError::InvalidDroppingPosition);
