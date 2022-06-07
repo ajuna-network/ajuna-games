@@ -201,6 +201,8 @@ pub struct GameState {
     pub winner: Option<Player>,
     /// Next player turn.
     pub next_player: Player,
+    /// Players:
+    pub players: [Player; NUM_OF_PLAYERS],
     /// Number of bombs available for each player.
     pub bombs: [(Player, u8); NUM_OF_PLAYERS],
 }
@@ -244,7 +246,8 @@ impl Game {
             board: Board::populate_with_random_blocks(Board::new(), NUM_OF_BLOCKS),
             phase: GamePhase::Bomb,
             winner: None,
-            next_player: player1,
+            next_player: 0,
+            players: [player1, player2],
             bombs: [
                 (player1, NUM_OF_BOMBS_PER_PLAYER),
                 (player2, NUM_OF_BOMBS_PER_PLAYER),
@@ -320,7 +323,7 @@ impl Game {
             return Err(GameError::InvalidDroppingPosition);
         }
 
-        if game_state.next_player != player {
+        if game_state.players[game_state.next_player as usize] != player {
             return Err(GameError::NotPlayerTurn);
         }
 

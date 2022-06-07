@@ -18,6 +18,7 @@ use crate::*;
 
 const ALICE: u32 = 0;
 const BOB: u32 = 1;
+const CHARLIE: u32 = 2;
 
 #[test]
 fn should_create_a_new_board() {
@@ -222,6 +223,22 @@ fn a_player_cannot_drop_a_stone_out_of_turn() {
     let drop_stone_result = Game::drop_stone(state, BOB, Side::North, 0);
     assert!(drop_stone_result.is_err());
     assert_eq!(drop_stone_result.unwrap_err(), GameError::NotPlayerTurn);
+}
+
+#[test]
+fn player_turn_changes_after_dropping_stone() {
+    let mut state = Game::new_game(CHARLIE, BOB);
+    state.phase = GamePhase::Play;
+    let drop_stone_result = Game::drop_stone(state, CHARLIE, Side::North, 0);
+    assert!(drop_stone_result.is_ok());
+    let state = drop_stone_result.unwrap();
+
+    let drop_stone_result = Game::drop_stone(state.clone(), CHARLIE, Side::North, 0);
+    assert!(drop_stone_result.is_err());
+    assert_eq!(drop_stone_result.unwrap_err(), GameError::NotPlayerTurn);
+
+    let drop_stone_result = Game::drop_stone(state, BOB, Side::North, 0);
+    assert!(drop_stone_result.is_ok());
 }
 
 #[test]
