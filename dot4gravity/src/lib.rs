@@ -260,10 +260,10 @@ impl Game {
 
     /// Drop a bomb. Called during bomb phase.
     pub fn drop_bomb(
-        game_state: &mut GameState,
+        mut game_state: GameState,
         position: Coordinates,
         player: Player,
-    ) -> Result<bool, GameError> {
+    ) -> Result<GameState, GameError> {
         if game_state.phase == GamePhase::Play {
             return Err(GameError::DroppedBombDuringPlayPhase);
         }
@@ -306,7 +306,7 @@ impl Game {
             _ => return Err(GameError::InvalidBombPosition),
         }
 
-        Ok(true)
+        Ok(game_state)
     }
 
     /// Change game phase.
