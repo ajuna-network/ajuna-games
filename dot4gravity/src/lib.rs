@@ -235,6 +235,9 @@ impl GameState {
             }
         }
     }
+    pub fn is_player_turn(&self, player: &Player) -> bool {
+        self.players[self.next_player as usize] == *player
+    }
 }
 
 pub struct Game;
@@ -323,7 +326,7 @@ impl Game {
             return Err(GameError::InvalidDroppingPosition);
         }
 
-        if game_state.players[game_state.next_player as usize] != player {
+        if !game_state.is_player_turn(&player) {
             return Err(GameError::NotPlayerTurn);
         }
 
