@@ -16,10 +16,6 @@
 
 use rand::prelude::SliceRandom;
 
-use frame_support::{pallet_prelude::MaxEncodedLen, RuntimeDebug, RuntimeDebugNoBound};
-use scale_info::TypeInfo;
-use sp_core::{Decode, Encode};
-
 #[cfg(test)]
 mod tests;
 
@@ -32,7 +28,7 @@ const NUM_OF_BLOCKS: usize = 10;
 type Player = u32;
 
 /// Represents a cell of the board.
-#[derive(Clone, Copy, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Cell {
     Empty,
     Bomb([Option<Player>; NUM_OF_PLAYERS]),
@@ -58,7 +54,7 @@ impl Cell {
 }
 
 /// Coordinates for a cell in the board.
-#[derive(Clone, Copy, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Coordinates {
     pub row: u8,
     pub col: u8,
@@ -82,7 +78,7 @@ impl Coordinates {
 }
 
 /// Sides of the board from which a player can drop a stone.
-#[derive(Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Side {
     North,
     East,
@@ -90,8 +86,7 @@ pub enum Side {
     West,
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebug)]
-
+#[derive(Clone, Eq, Debug, PartialEq)]
 pub struct Board {
     cells: [[Cell; BOARD_WIDTH as usize]; BOARD_HEIGHT as usize],
 }
@@ -119,23 +114,6 @@ impl Board {
             self.cells[position.row as usize][position.col as usize],
             cell
         );
-    }
-
-    fn populate_with_random_blocks(mut board: Board, num_of_blocks: usize) -> Board {
-        let mut rng = rand::thread_rng();
-
-        let mut board_coordinates = Vec::new();
-        for row in 0..BOARD_HEIGHT {
-            for col in 0..BOARD_HEIGHT {
-                board_coordinates.push(Coordinates { row, col });
-            }
-        }
-        board_coordinates
-            .choose_multiple(&mut rng, num_of_blocks)
-            .cloned()
-            .for_each(|coordinates| board.update_cell(coordinates, Cell::Block));
-
-        board
     }
 
     fn explode_bomb(mut board: Board, bomb_position: Coordinates) -> Board {
@@ -167,7 +145,7 @@ impl Board {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum GamePhase {
     /// Not turn based. The players place bombs during this phase.
     Bomb,
@@ -191,7 +169,7 @@ pub enum GameError {
     NoPreviousPosition,
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, RuntimeDebug, MaxEncodedLen)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GameState {
     /// Represents the game board.
     pub board: Board,
@@ -239,14 +217,39 @@ impl GameState {
         self.players[self.next_player as usize] == *player
     }
 }
+pub trait BlocksGenerator {
+    /// Add blocks to the board.
+    fn add_blocks(board: Board, num_of_blocks: usize) -> Board;
+}
 
+pub struct RandomBlocksGenerator;
+
+impl BlocksGenerator for RandomBlocksGenerator {
+    /// Generates blocks randomly located.
+    fn add_blocks(mut board: Board, num_of_blocks: usize) -> Board {
+        let mut rng = rand::thread_rng();
+
+        let mut board_coordinates = Vec::new();
+        for row in 0..BOARD_HEIGHT {
+            for col in 0..BOARD_HEIGHT {
+                board_coordinates.push(Coordinates { row, col });
+            }
+        }
+        board_coordinates
+            .choose_multiple(&mut rng, num_of_blocks)
+            .cloned()
+            .for_each(|coordinates| board.update_cell(coordinates, Cell::Block));
+
+        board
+    }
+}
 pub struct Game;
 
 impl Game {
     /// Create a new game.
-    pub fn new_game(player1: Player, player2: Player) -> GameState {
+    pub fn new_game<R: BlocksGenerator>(player1: Player, player2: Player) -> GameState {
         GameState {
-            board: Board::populate_with_random_blocks(Board::new(), NUM_OF_BLOCKS),
+            board: R::add_blocks(Board::new(), NUM_OF_BLOCKS),
             phase: GamePhase::Bomb,
             winner: None,
             next_player: 0,

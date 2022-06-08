@@ -20,6 +20,36 @@ const ALICE: u32 = 0;
 const BOB: u32 = 1;
 const CHARLIE: u32 = 2;
 
+struct MockRandomBoard;
+
+impl BlocksGenerator for MockRandomBoard {
+    fn add_blocks(_: Board, _: usize) -> Board {
+        let board_blocks: Vec<(u8, u8)> = vec![
+            (0, 9),
+            (1, 1),
+            (1, 3),
+            (2, 2),
+            (2, 6),
+            (6, 1),
+            (6, 6),
+            (7, 4),
+            (8, 3),
+            (8, 9),
+        ];
+        let mut board = Board::new();
+        board_blocks.iter().for_each(|(row, col)| {
+            board.update_cell(
+                Coordinates {
+                    row: *row,
+                    col: *col,
+                },
+                Cell::Block,
+            )
+        });
+        board
+    }
+}
+
 #[test]
 fn should_create_a_new_board() {
     fn is_empty(board: &Board) -> bool {
@@ -59,8 +89,43 @@ fn board_cell_can_be_changed() {
 }
 
 #[test]
+fn mock_blocks_generator_generates_the_expected_board() {
+    let game = Game::new_game::<MockRandomBoard>(ALICE, BOB);
+    let o = Cell::Empty;
+    let x = Cell::Block;
+    assert_eq!(
+        game.board,
+        Board {
+            cells: [
+                [o, o, o, o, o, o, o, o, o, x],
+                [o, x, o, x, o, o, o, o, o, o],
+                [o, o, x, o, o, o, x, o, o, o],
+                [o, o, o, o, o, o, o, o, o, o],
+                [o, o, o, o, o, o, o, o, o, o],
+                [o, o, o, o, o, o, o, o, o, o],
+                [o, x, o, o, o, o, x, o, o, o],
+                [o, o, o, o, x, o, o, o, o, o],
+                [o, o, o, x, o, o, o, o, o, x],
+                [o, o, o, o, o, o, o, o, o, o]
+            ]
+        }
+    );
+}
+
+#[test]
+fn random_generator() {
+    let state = Game::new_game::<RandomBlocksGenerator>(ALICE, BOB);
+    let mock_state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
+    for _ in 0..100 {
+        let loop_state = Game::new_game::<RandomBlocksGenerator>(ALICE, BOB);
+        assert_ne!(state.board, loop_state.board);
+        assert_ne!(mock_state.board, loop_state.board);
+    }
+}
+
+#[test]
 fn should_create_new_game() {
-    let game_state = Game::new_game(ALICE, BOB);
+    let game_state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     assert_eq!(
         game_state.phase,
         GamePhase::Bomb,
@@ -89,7 +154,7 @@ fn should_create_new_game() {
 
 #[test]
 fn a_board_in_a_new_game_should_contain_random_blocks() {
-    let state = Game::new_game(ALICE, BOB);
+    let state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     let mut blocks = 0;
 
     // Count all cells of type 'block' in board.
@@ -106,7 +171,7 @@ fn a_board_in_a_new_game_should_contain_random_blocks() {
 
 #[test]
 fn a_player_cannot_drop_bomb_in_play_phase() {
-    let mut game_state = Game::new_game(ALICE, BOB);
+    let mut game_state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     game_state.phase = GamePhase::Play;
     let result = Game::drop_bomb(game_state, Coordinates { row: 0, col: 0 }, ALICE);
     assert!(result.is_err());
@@ -115,7 +180,7 @@ fn a_player_cannot_drop_bomb_in_play_phase() {
 
 #[test]
 fn a_player_cannot_drop_bomb_if_already_dropped_all() {
-    let mut game_state = Game::new_game(ALICE, BOB);
+    let mut game_state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     game_state.board = Board::new();
     game_state.bombs = [(ALICE, 0), (BOB, 0)];
     let result = Game::drop_bomb(game_state, Coordinates { row: 0, col: 0 }, 0);
@@ -125,7 +190,7 @@ fn a_player_cannot_drop_bomb_if_already_dropped_all() {
 
 #[test]
 fn a_player_drops_a_bomb() {
-    let mut game_state = Game::new_game(ALICE, BOB);
+    let mut game_state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     game_state.board = Board::new();
 
     let bomb_position = Coordinates { row: 0, col: 0 };
@@ -149,7 +214,7 @@ fn a_player_drops_a_bomb() {
 
 #[test]
 fn a_cell_can_hold_one_or_more_bombs_from_different_players() {
-    let mut game_state = Game::new_game(ALICE, BOB);
+    let mut game_state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     game_state.board = Board::new();
     let bomb_position = Coordinates { row: 0, col: 0 };
 
@@ -174,7 +239,7 @@ fn a_cell_can_hold_one_or_more_bombs_from_different_players() {
 
 #[test]
 fn a_bomb_cannot_be_placed_in_a_block_cell() {
-    let mut game_state = Game::new_game(ALICE, BOB);
+    let mut game_state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     game_state.board.cells[0][0] = Cell::Block;
     let drop_bomb_result = Game::drop_bomb(game_state, Coordinates { row: 0, col: 0 }, ALICE);
     assert!(drop_bomb_result.is_err());
@@ -186,7 +251,7 @@ fn a_bomb_cannot_be_placed_in_a_block_cell() {
 
 #[test]
 fn a_player_cannot_place_more_than_one_bomb_in_a_cell() {
-    let mut game_state = Game::new_game(ALICE, BOB);
+    let mut game_state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     game_state.board = Board::new();
     let position = Coordinates { row: 0, col: 0 };
 
@@ -217,7 +282,7 @@ fn a_player_cannot_place_more_than_one_bomb_in_a_cell() {
 
 #[test]
 fn a_game_can_change_game_phase() {
-    let game_state = Game::new_game(ALICE, BOB);
+    let game_state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     assert_eq!(game_state.phase, GamePhase::Bomb);
     let game_state = Game::change_game_phase(game_state, GamePhase::Play);
     assert_eq!(game_state.phase, GamePhase::Play);
@@ -227,7 +292,7 @@ fn a_game_can_change_game_phase() {
 
 #[test]
 fn a_player_cannot_drop_a_stone_out_of_turn() {
-    let state = Game::new_game(ALICE, BOB);
+    let state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     let drop_stone_result = Game::drop_stone(state, BOB, Side::North, 0);
     assert!(drop_stone_result.is_err());
     assert_eq!(drop_stone_result.unwrap_err(), GameError::NotPlayerTurn);
@@ -235,7 +300,7 @@ fn a_player_cannot_drop_a_stone_out_of_turn() {
 
 #[test]
 fn player_turn_changes_after_dropping_stone() {
-    let mut state = Game::new_game(CHARLIE, BOB);
+    let mut state = Game::new_game::<MockRandomBoard>(CHARLIE, BOB);
     state.phase = GamePhase::Play;
     let drop_stone_result = Game::drop_stone(state, CHARLIE, Side::North, 0);
     assert!(drop_stone_result.is_ok());
@@ -266,7 +331,7 @@ fn a_stone_dropped_from_north_side_should_move_until_it_reaches_an_obstacle() {
         [o, b, o, o, o, o, o, o, o, o],
     ];
 
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     state.board.cells = cells;
 
     let state = Game::drop_stone(state, ALICE, Side::North, 0).unwrap();
@@ -308,7 +373,7 @@ fn a_stone_dropped_from_south_side_should_move_until_it_reaches_an_obstacle() {
         [o, o, o, b, o, o, o, o, o, o],
     ];
 
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     state.board.cells = cells;
 
     let state = Game::drop_stone(state, ALICE, Side::South, 0).unwrap();
@@ -350,7 +415,7 @@ fn a_stone_dropped_from_east_side_should_move_until_it_reaches_an_obstacle() {
         [o, o, o, o, o, o, o, o, o, o],
     ];
 
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     state.board.cells = cells;
 
     let state = Game::drop_stone(state, ALICE, Side::East, 0).unwrap();
@@ -391,7 +456,7 @@ fn a_stone_dropped_from_west_side_should_move_until_it_reaches_an_obstacle() {
         [o, o, o, o, o, o, o, o, o, o],
     ];
 
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     state.board.cells = cells;
 
     let state = Game::drop_stone(state, ALICE, Side::West, 0).unwrap();
@@ -422,7 +487,7 @@ fn a_stone_should_explode_a_bomb_when_passing_through() {
     let x = Cell::Stone(0);
     let l = Cell::Block;
 
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     state.board.cells = [
         [o, o, o, o, o, o, o, o, b, o],
         [o, o, o, o, o, o, o, o, o, o],
@@ -502,7 +567,7 @@ fn a_player_wins_when_has_a_four_stone_vertical_row() {
     let o = Cell::Empty;
     let s = Cell::Stone(ALICE);
 
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     state.board.cells = [
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
@@ -526,7 +591,7 @@ fn a_player_wins_when_has_a_four_stone_horizontal_row() {
     let o = Cell::Empty;
     let s = Cell::Stone(ALICE);
 
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     state.board.cells = [
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
@@ -550,7 +615,7 @@ fn a_player_wins_when_has_a_four_stone_ascending_diagonal_row() {
     let o = Cell::Empty;
     let s = Cell::Stone(ALICE);
 
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     state.board.cells = [
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
@@ -574,7 +639,7 @@ fn a_player_wins_when_has_a_four_stone_descending_diagonal_row() {
     let o = Cell::Empty;
     let s = Cell::Stone(ALICE);
 
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     state.board.cells = [
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
@@ -600,7 +665,7 @@ fn no_player_wins_for_less_than_four_in_a_row_stones() {
     let r = Cell::Stone(ALICE);
     let m = Cell::Stone(BOB);
 
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     state.board.cells = [
         [o, r, o, o, o, o, o, o, m, o],
         [m, o, o, o, o, o, o, o, o, o],
@@ -623,7 +688,7 @@ fn should_play_a_game() {
     let o = Cell::Empty;
     let b = Cell::Block;
 
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
     state.board.cells = [
         [o, o, o, o, o, o, o, o, b, o],
         [b, o, o, o, o, o, o, o, o, o],
