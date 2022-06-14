@@ -181,7 +181,6 @@ fn a_player_cannot_drop_bomb_in_play_phase() {
 #[test]
 fn a_player_cannot_drop_bomb_if_already_dropped_all() {
     let mut game_state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
-    game_state.board = Board::new();
     game_state.bombs = [(ALICE, 0), (BOB, 0)];
     let result = Game::drop_bomb(game_state, Coordinates { row: 0, col: 0 }, 0);
     assert!(result.is_err());
@@ -190,8 +189,7 @@ fn a_player_cannot_drop_bomb_if_already_dropped_all() {
 
 #[test]
 fn a_player_drops_a_bomb() {
-    let mut game_state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
-    game_state.board = Board::new();
+    let game_state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
 
     let bomb_position = Coordinates { row: 0, col: 0 };
     let player_bombs = game_state.get_player_bombs(&ALICE).unwrap();
@@ -215,7 +213,6 @@ fn a_player_drops_a_bomb() {
 #[test]
 fn a_cell_can_hold_one_or_more_bombs_from_different_players() {
     let mut game_state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
-    game_state.board = Board::new();
     let bomb_position = Coordinates { row: 0, col: 0 };
 
     let drop_bomb_result = Game::drop_bomb(game_state, bomb_position.clone(), ALICE);
@@ -252,7 +249,6 @@ fn a_bomb_cannot_be_placed_in_a_block_cell() {
 #[test]
 fn a_player_cannot_place_more_than_one_bomb_in_a_cell() {
     let mut game_state = Game::new_game::<MockRandomBoard>(ALICE, BOB);
-    game_state.board = Board::new();
     let position = Coordinates { row: 0, col: 0 };
 
     // Drop the first bomb

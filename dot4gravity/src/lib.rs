@@ -36,9 +36,15 @@ enum Cell {
     Stone(Player),
 }
 
+impl Default for Cell {
+    fn default() -> Self {
+        Self::Empty
+    }
+}
+
 impl Cell {
     /// Tells if a cell is suitable for dropping a bomb.
-    fn is_valid_for_dropping_bomb(&self) -> bool {
+    fn is_bomb_droppable(&self) -> bool {
         *self == Cell::Empty || self.is_bomb()
     }
 
@@ -86,22 +92,22 @@ pub enum Side {
     West,
 }
 
-#[derive(Clone, Eq, Debug, PartialEq)]
+#[derive(Clone, Eq, Debug, Default, PartialEq)]
 pub struct Board {
     cells: [[Cell; BOARD_WIDTH]; BOARD_HEIGHT],
-}
-
-impl Default for Board {
-    fn default() -> Self {
-        Board {
-            cells: [[Cell::Empty; BOARD_WIDTH]; BOARD_HEIGHT],
-        }
-    }
 }
 
 impl Board {
     pub fn new() -> Board {
         Board::default()
+    }
+
+    fn is_bomb_droppable(&self, position: &Coordinates) -> bool {
+        position.is_inside_board() && self.get_cell(position).is_bomb_droppable()
+    }
+
+    fn is_explodable(&self, position: &Coordinates) -> bool {
+        position.is_inside_board() && self.get_cell(position).is_explodable()
     }
 
     fn get_cell(&self, position: &Coordinates) -> Cell {
@@ -113,7 +119,7 @@ impl Board {
         assert_eq!(self.cells[position.row][position.col], cell);
     }
 
-    fn explode_bomb(mut board: Board, bomb_position: Coordinates) -> Board {
+    fn explode_bomb(&mut self, bomb_position: Coordinates) {
         let offsets: [(i8, i8); 9] = [
             (0, 0),
             (-1, -1),
@@ -133,12 +139,10 @@ impl Board {
                 col: (col_offset + bomb_position.col as i8) as usize,
             })
             .for_each(|position| {
-                if position.is_inside_board() && board.get_cell(&position).is_explodable() {
-                    board.update_cell(position, Cell::Empty)
+                if self.is_explodable(&position) {
+                    self.update_cell(position, Cell::Empty)
                 }
             });
-
-        board
     }
 }
 
@@ -148,6 +152,12 @@ pub enum GamePhase {
     Bomb,
     /// Turn based phase. Every player can trigger bombs, his own or opponents.
     Play,
+}
+
+impl Default for GamePhase {
+    fn default() -> Self {
+        Self::Bomb
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -193,6 +203,10 @@ impl GameState {
 
     pub fn is_player_in_game(&self, player: &Player) -> bool {
         self.bombs.iter().any(|(p, _)| *p == *player)
+    }
+
+    pub fn is_all_player_bomb_dropped(&self, player: &Player) -> bool {
+        matches!(self.get_player_bombs(player), Some(available_bombs) if available_bombs == 0)
     }
 
     pub fn get_player_bombs(&self, player: &Player) -> Option<usize> {
@@ -242,13 +256,46 @@ impl BlocksGenerator for RandomBlocksGenerator {
 pub struct Game;
 
 impl Game {
+    fn can_drop_bomb(
+        game_state: &GameState,
+        position: &Coordinates,
+        player: &Player,
+    ) -> Result<(), GameError> {
+        if game_state.phase == GamePhase::Play {
+            return Err(GameError::DroppedBombDuringPlayPhase);
+        }
+        if game_state.is_all_player_bomb_dropped(player) {
+            return Err(GameError::NoMoreBombsAvailable);
+        }
+        if !game_state.board.is_bomb_droppable(position) {
+            return Err(GameError::InvalidBombPosition);
+        }
+        Ok(())
+    }
+
+    fn can_drop_stone(
+        game_state: &GameState,
+        position: usize,
+        player: &Player,
+    ) -> Result<(), GameError> {
+        if position >= BOARD_HEIGHT || position >= BOARD_WIDTH {
+            return Err(GameError::InvalidDroppingPosition);
+        }
+        if !game_state.is_player_turn(player) {
+            return Err(GameError::NotPlayerTurn);
+        }
+        Ok(())
+    }
+}
+
+impl Game {
     /// Create a new game.
     pub fn new_game<R: BlocksGenerator>(player1: Player, player2: Player) -> GameState {
         GameState {
             board: R::add_blocks(Board::new(), NUM_OF_BLOCKS),
-            phase: GamePhase::Bomb,
-            winner: None,
-            next_player: 0,
+            phase: Default::default(),
+            winner: Default::default(),
+            next_player: Default::default(),
             players: [player1, player2],
             bombs: [
                 (player1, NUM_OF_BOMBS_PER_PLAYER),
@@ -263,20 +310,8 @@ impl Game {
         position: Coordinates,
         player: Player,
     ) -> Result<GameState, GameError> {
-        if game_state.phase == GamePhase::Play {
-            return Err(GameError::DroppedBombDuringPlayPhase);
-        }
-        if game_state.get_player_bombs(&player).unwrap() == 0 {
-            return Err(GameError::NoMoreBombsAvailable);
-        }
-        if !game_state
-            .board
-            .get_cell(&position)
-            .is_valid_for_dropping_bomb()
-        {
-            return Err(GameError::InvalidBombPosition);
-        }
-        match game_state.board.cells[position.row][position.col] {
+        Self::can_drop_bomb(&game_state, &position, &player)?;
+        match game_state.board.get_cell(&position) {
             Cell::Empty => {
                 game_state
                     .board
@@ -286,21 +321,14 @@ impl Game {
                     game_state.change_game_phase(GamePhase::Play);
                 }
             }
-            Cell::Bomb([Some(other_player), None]) => {
-                if other_player == player {
-                    return Err(GameError::InvalidBombPosition);
-                } else {
-                    game_state
-                        .board
-                        .update_cell(position, Cell::Bomb([Some(other_player), Some(player)]));
-                    game_state.decrease_player_bombs(&player);
-                    if game_state.is_all_bomb_dropped() {
-                        game_state.change_game_phase(GamePhase::Play);
-                    }
+            Cell::Bomb([Some(other_player), None]) if other_player != player => {
+                game_state
+                    .board
+                    .update_cell(position, Cell::Bomb([Some(other_player), Some(player)]));
+                game_state.decrease_player_bombs(&player);
+                if game_state.is_all_bomb_dropped() {
+                    game_state.change_game_phase(GamePhase::Play);
                 }
-            }
-            Cell::Bomb([Some(_), Some(_)]) => {
-                return Err(GameError::InvalidBombPosition);
             }
             _ => return Err(GameError::InvalidBombPosition),
         }
@@ -321,14 +349,7 @@ impl Game {
         side: Side,
         position: usize,
     ) -> Result<GameState, GameError> {
-        if position >= BOARD_HEIGHT || position >= BOARD_WIDTH {
-            return Err(GameError::InvalidDroppingPosition);
-        }
-
-        if !game_state.is_player_turn(&player) {
-            return Err(GameError::NotPlayerTurn);
-        }
-
+        Self::can_drop_stone(&game_state, position, &player)?;
         match side {
             Side::North => {
                 let mut row = 0;
@@ -338,7 +359,7 @@ impl Game {
                     match game_state.board.get_cell(&position) {
                         // A cell bomb must explode.
                         Cell::Bomb([_, _]) => {
-                            game_state.board = Board::explode_bomb(game_state.board, position);
+                            game_state.board.explode_bomb(position);
                             stop = true;
                         }
                         // The stone is placed at the end if it's empty.
@@ -390,7 +411,7 @@ impl Game {
                     match game_state.board.get_cell(&position) {
                         // A cell bomb must explode.
                         Cell::Bomb([_, _]) => {
-                            game_state.board = Board::explode_bomb(game_state.board, position);
+                            game_state.board.explode_bomb(position);
                             break;
                         }
                         // The stone is placed at the end if it's empty.
@@ -445,7 +466,7 @@ impl Game {
                     match game_state.board.get_cell(&position) {
                         // A cell bomb must explode.
                         Cell::Bomb([_, _]) => {
-                            game_state.board = Board::explode_bomb(game_state.board, position);
+                            game_state.board.explode_bomb(position);
                             break;
                         }
                         // The stone is placed at the end if it's empty.
@@ -501,7 +522,7 @@ impl Game {
                     match game_state.board.get_cell(&position) {
                         // A cell bomb must explode.
                         Cell::Bomb([_, _]) => {
-                            game_state.board = Board::explode_bomb(game_state.board, position);
+                            game_state.board.explode_bomb(position);
                             stop = true;
                         }
                         // The stone is placed at the end if it's empty.
