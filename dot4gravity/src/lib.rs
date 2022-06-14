@@ -199,11 +199,10 @@ impl GameState {
     }
 
     pub fn get_player_bombs(&self, player: &Player) -> Option<u8> {
-        let found = self.bombs.iter().find(|(p, _)| *p == *player);
-        if found.is_some() {
-            return Some(found.unwrap().1);
-        }
-        return None;
+        self.bombs
+            .iter()
+            .find(|(p, _)| *p == *player)
+            .map(|(_, available_bombs)| *available_bombs)
     }
 
     pub fn decrease_player_bombs(&mut self, player: &Player) {
