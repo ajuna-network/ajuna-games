@@ -19,10 +19,10 @@ use rand::prelude::SliceRandom;
 #[cfg(test)]
 mod tests;
 
-const BOARD_WIDTH: u8 = 10;
-const BOARD_HEIGHT: u8 = 10;
+const BOARD_WIDTH: usize = 10;
+const BOARD_HEIGHT: usize = 10;
 const NUM_OF_PLAYERS: usize = 2;
-const NUM_OF_BOMBS_PER_PLAYER: u8 = 3;
+const NUM_OF_BOMBS_PER_PLAYER: usize = 3;
 const NUM_OF_BLOCKS: usize = 10;
 
 type Player = u32;
@@ -56,8 +56,8 @@ impl Cell {
 /// Coordinates for a cell in the board.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Coordinates {
-    pub row: u8,
-    pub col: u8,
+    pub row: usize,
+    pub col: usize,
 }
 
 impl Coordinates {
@@ -88,13 +88,13 @@ pub enum Side {
 
 #[derive(Clone, Eq, Debug, PartialEq)]
 pub struct Board {
-    cells: [[Cell; BOARD_WIDTH as usize]; BOARD_HEIGHT as usize],
+    cells: [[Cell; BOARD_WIDTH]; BOARD_HEIGHT],
 }
 
 impl Default for Board {
     fn default() -> Self {
         Board {
-            cells: [[Cell::Empty; BOARD_WIDTH as usize]; BOARD_HEIGHT as usize],
+            cells: [[Cell::Empty; BOARD_WIDTH]; BOARD_HEIGHT],
         }
     }
 }
@@ -105,15 +105,12 @@ impl Board {
     }
 
     fn get_cell(&self, position: &Coordinates) -> Cell {
-        self.cells[position.row as usize][position.col as usize]
+        self.cells[position.row][position.col]
     }
 
     fn update_cell(&mut self, position: Coordinates, cell: Cell) {
-        self.cells[position.row as usize][position.col as usize] = cell;
-        assert_eq!(
-            self.cells[position.row as usize][position.col as usize],
-            cell
-        );
+        self.cells[position.row][position.col] = cell;
+        assert_eq!(self.cells[position.row][position.col], cell);
     }
 
     fn explode_bomb(mut board: Board, bomb_position: Coordinates) -> Board {
@@ -132,8 +129,8 @@ impl Board {
         offsets
             .iter()
             .map(|(row_offset, col_offset)| Coordinates {
-                row: (row_offset + bomb_position.row as i8) as u8,
-                col: (col_offset + bomb_position.col as i8) as u8,
+                row: (row_offset + bomb_position.row as i8) as usize,
+                col: (col_offset + bomb_position.col as i8) as usize,
             })
             .for_each(|position| {
                 if position.is_inside_board() && board.get_cell(&position).is_explodable() {
@@ -182,7 +179,7 @@ pub struct GameState {
     /// Players:
     pub players: [Player; NUM_OF_PLAYERS],
     /// Number of bombs available for each player.
-    pub bombs: [(Player, u8); NUM_OF_PLAYERS],
+    pub bombs: [(Player, usize); NUM_OF_PLAYERS],
 }
 
 impl GameState {
@@ -198,7 +195,7 @@ impl GameState {
         self.bombs.iter().any(|(p, _)| *p == *player)
     }
 
-    pub fn get_player_bombs(&self, player: &Player) -> Option<u8> {
+    pub fn get_player_bombs(&self, player: &Player) -> Option<usize> {
         self.bombs
             .iter()
             .find(|(p, _)| *p == *player)
@@ -279,7 +276,7 @@ impl Game {
         {
             return Err(GameError::InvalidBombPosition);
         }
-        match game_state.board.cells[position.row as usize][position.col as usize] {
+        match game_state.board.cells[position.row][position.col] {
             Cell::Empty => {
                 game_state
                     .board
@@ -322,7 +319,7 @@ impl Game {
         mut game_state: GameState,
         player: Player,
         side: Side,
-        position: u8,
+        position: usize,
     ) -> Result<GameState, GameError> {
         if position >= BOARD_HEIGHT || position >= BOARD_WIDTH {
             return Err(GameError::InvalidDroppingPosition);

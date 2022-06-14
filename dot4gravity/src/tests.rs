@@ -24,7 +24,7 @@ struct MockRandomBoard;
 
 impl BlocksGenerator for MockRandomBoard {
     fn add_blocks(_: Board, _: usize) -> Board {
-        let board_blocks: Vec<(u8, u8)> = vec![
+        let board_blocks: Vec<(usize, usize)> = vec![
             (0, 9),
             (1, 1),
             (1, 3),
@@ -65,8 +65,8 @@ fn should_create_a_new_board() {
     }
 
     let board = Board::new();
-    assert_eq!(board.cells.len(), BOARD_HEIGHT as usize);
-    assert_eq!(board.cells[0].len(), BOARD_WIDTH as usize);
+    assert_eq!(board.cells.len(), BOARD_HEIGHT);
+    assert_eq!(board.cells[0].len(), BOARD_WIDTH);
     assert!(is_empty(&board))
 }
 
@@ -203,7 +203,7 @@ fn a_player_drops_a_bomb() {
 
     assert_eq!(
         game_state.get_player_bombs(&ALICE).unwrap(),
-        player_bombs - 1u8,
+        player_bombs - 1,
         "The player should have one bomb less available for dropping"
     );
     assert_eq!(
