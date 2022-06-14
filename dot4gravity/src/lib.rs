@@ -14,21 +14,23 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use codec::{Decode, Encode};
 use rand::prelude::SliceRandom;
+use scale_info::TypeInfo;
 
 #[cfg(test)]
 mod tests;
 
-const BOARD_WIDTH: usize = 10;
-const BOARD_HEIGHT: usize = 10;
+const BOARD_WIDTH: u8 = 10;
+const BOARD_HEIGHT: u8 = 10;
 const NUM_OF_PLAYERS: usize = 2;
-const NUM_OF_BOMBS_PER_PLAYER: usize = 3;
+const NUM_OF_BOMBS_PER_PLAYER: u8 = 3;
 const NUM_OF_BLOCKS: usize = 10;
 
 type Player = u32;
 
 /// Represents a cell of the board.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, Eq, PartialEq)]
 enum Cell {
     Empty,
     Bomb([Option<Player>; NUM_OF_PLAYERS]),
@@ -60,10 +62,10 @@ impl Cell {
 }
 
 /// Coordinates for a cell in the board.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Coordinates {
-    pub row: usize,
-    pub col: usize,
+    pub row: u8,
+    pub col: u8,
 }
 
 impl Coordinates {
@@ -84,7 +86,7 @@ impl Coordinates {
 }
 
 /// Sides of the board from which a player can drop a stone.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, Eq, PartialEq)]
 pub enum Side {
     North,
     East,
@@ -92,9 +94,9 @@ pub enum Side {
     West,
 }
 
-#[derive(Clone, Eq, Debug, Default, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Eq, Debug, Default, PartialEq)]
 pub struct Board {
-    cells: [[Cell; BOARD_WIDTH]; BOARD_HEIGHT],
+    cells: [[Cell; BOARD_WIDTH as usize]; BOARD_HEIGHT as usize],
 }
 
 impl Board {
@@ -111,12 +113,15 @@ impl Board {
     }
 
     fn get_cell(&self, position: &Coordinates) -> Cell {
-        self.cells[position.row][position.col]
+        self.cells[position.row as usize][position.col as usize]
     }
 
     fn update_cell(&mut self, position: Coordinates, cell: Cell) {
-        self.cells[position.row][position.col] = cell;
-        assert_eq!(self.cells[position.row][position.col], cell);
+        self.cells[position.row as usize][position.col as usize] = cell;
+        assert_eq!(
+            self.cells[position.row as usize][position.col as usize],
+            cell
+        );
     }
 
     fn explode_bomb(&mut self, bomb_position: Coordinates) {
@@ -135,8 +140,8 @@ impl Board {
         offsets
             .iter()
             .map(|(row_offset, col_offset)| Coordinates {
-                row: (row_offset + bomb_position.row as i8) as usize,
-                col: (col_offset + bomb_position.col as i8) as usize,
+                row: (row_offset + bomb_position.row as i8) as u8,
+                col: (col_offset + bomb_position.col as i8) as u8,
             })
             .for_each(|position| {
                 if self.is_explodable(&position) {
@@ -146,7 +151,7 @@ impl Board {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, Eq, PartialEq)]
 pub enum GamePhase {
     /// Not turn based. The players place bombs during this phase.
     Bomb,
@@ -160,7 +165,7 @@ impl Default for GamePhase {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
 pub enum GameError {
     /// Tried to drop a bomb during game play phase.
     DroppedBombDuringPlayPhase,
@@ -176,7 +181,7 @@ pub enum GameError {
     NoPreviousPosition,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, Eq, PartialEq)]
 pub struct GameState {
     /// Represents the game board.
     pub board: Board,
@@ -189,7 +194,7 @@ pub struct GameState {
     /// Players:
     pub players: [Player; NUM_OF_PLAYERS],
     /// Number of bombs available for each player.
-    pub bombs: [(Player, usize); NUM_OF_PLAYERS],
+    pub bombs: [(Player, u8); NUM_OF_PLAYERS],
 }
 
 impl GameState {
@@ -209,7 +214,7 @@ impl GameState {
         matches!(self.get_player_bombs(player), Some(available_bombs) if available_bombs == 0)
     }
 
-    pub fn get_player_bombs(&self, player: &Player) -> Option<usize> {
+    pub fn get_player_bombs(&self, player: &Player) -> Option<u8> {
         self.bombs
             .iter()
             .find(|(p, _)| *p == *player)
@@ -232,6 +237,7 @@ pub trait BlocksGenerator {
     fn add_blocks(board: Board, num_of_blocks: usize) -> Board;
 }
 
+#[derive(Encode, Decode, TypeInfo)]
 pub struct RandomBlocksGenerator;
 
 impl BlocksGenerator for RandomBlocksGenerator {
@@ -253,6 +259,8 @@ impl BlocksGenerator for RandomBlocksGenerator {
         board
     }
 }
+
+#[derive(Encode, Decode, TypeInfo)]
 pub struct Game;
 
 impl Game {
@@ -275,7 +283,7 @@ impl Game {
 
     fn can_drop_stone(
         game_state: &GameState,
-        position: usize,
+        position: u8,
         player: &Player,
     ) -> Result<(), GameError> {
         if position >= BOARD_HEIGHT || position >= BOARD_WIDTH {
@@ -347,7 +355,7 @@ impl Game {
         mut game_state: GameState,
         player: Player,
         side: Side,
-        position: usize,
+        position: u8,
     ) -> Result<GameState, GameError> {
         Self::can_drop_stone(&game_state, position, &player)?;
         match side {

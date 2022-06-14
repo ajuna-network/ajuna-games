@@ -24,7 +24,7 @@ struct MockRandomBoard;
 
 impl BlocksGenerator for MockRandomBoard {
     fn add_blocks(_: Board, _: usize) -> Board {
-        let board_blocks: Vec<(usize, usize)> = vec![
+        let board_blocks: Vec<(u8, u8)> = vec![
             (0, 9),
             (1, 1),
             (1, 3),
@@ -65,8 +65,8 @@ fn should_create_a_new_board() {
     }
 
     let board = Board::new();
-    assert_eq!(board.cells.len(), BOARD_HEIGHT);
-    assert_eq!(board.cells[0].len(), BOARD_WIDTH);
+    assert_eq!(board.cells.len() as u8, BOARD_HEIGHT);
+    assert_eq!(board.cells[0].len() as u8, BOARD_WIDTH);
     assert!(is_empty(&board))
 }
 
