@@ -821,3 +821,37 @@ fn should_play_a_game() {
     assert!(state.winner.is_some());
     assert_eq!(state.winner.unwrap(), ALICE);
 }
+
+#[cfg(test)]
+mod random_block_generator_tests {
+    use super::*;
+
+    fn block_count(board: Board) -> usize {
+        let mut count = 0;
+        board.cells.iter().for_each(|x| {
+            x.iter().for_each(|y| {
+                if *y == Cell::Block {
+                    count += 1;
+                }
+            })
+        });
+        count
+    }
+
+    #[test]
+    fn number_of_blocks_added_should_match_specified() {
+        for n in 0..(BOARD_WIDTH * BOARD_HEIGHT) as usize {
+            let board = RandomBlocksGenerator::add_blocks(Board::new(), n);
+            assert_eq!(block_count(board), n);
+        }
+    }
+
+    #[test]
+    fn blocks_should_be_added_in_random_positions() {
+        for n in 1..(BOARD_WIDTH * BOARD_HEIGHT) as usize {
+            let board_1 = RandomBlocksGenerator::add_blocks(Board::new(), n);
+            let board_2 = RandomBlocksGenerator::add_blocks(Board::new(), n);
+            assert_ne!(board_1, board_2);
+        }
+    }
+}
