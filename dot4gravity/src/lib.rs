@@ -69,6 +69,10 @@ pub struct Coordinates {
 }
 
 impl Coordinates {
+    const fn new(row: u8, col: u8) -> Self {
+        Self { row, col }
+    }
+
     /// Tells if a cell is inside the board.
     fn is_inside_board(&self) -> bool {
         self.row < BOARD_WIDTH && self.col < BOARD_HEIGHT
@@ -94,7 +98,7 @@ pub enum Side {
     West,
 }
 
-#[derive(Encode, Decode, TypeInfo, Clone, Eq, Debug, Default, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, Eq, Debug, Default, PartialEq)]
 pub struct Board {
     cells: [[Cell; BOARD_WIDTH as usize]; BOARD_HEIGHT as usize],
 }
@@ -139,9 +143,11 @@ impl Board {
         // Collect the explodable cells around.
         offsets
             .iter()
-            .map(|(row_offset, col_offset)| Coordinates {
-                row: (row_offset + bomb_position.row as i8) as u8,
-                col: (col_offset + bomb_position.col as i8) as u8,
+            .map(|(row_offset, col_offset)| {
+                Coordinates::new(
+                    (row_offset + bomb_position.row as i8) as u8,
+                    (col_offset + bomb_position.col as i8) as u8,
+                )
             })
             .for_each(|position| {
                 if self.is_explodable(&position) {
@@ -151,7 +157,7 @@ impl Board {
     }
 }
 
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum GamePhase {
     /// Not turn based. The players place bombs during this phase.
     Bomb,
@@ -181,7 +187,7 @@ pub enum GameError {
     NoPreviousPosition,
 }
 
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, Eq, PartialEq)]
 pub struct GameState {
     /// Represents the game board.
     pub board: Board,
@@ -248,7 +254,7 @@ impl BlocksGenerator for RandomBlocksGenerator {
         let mut board_coordinates = Vec::new();
         for row in 0..BOARD_HEIGHT {
             for col in 0..BOARD_HEIGHT {
-                board_coordinates.push(Coordinates { row, col });
+                board_coordinates.push(Coordinates::new(row, col));
             }
         }
         board_coordinates
@@ -363,7 +369,7 @@ impl Game {
                 let mut row = 0;
                 let mut stop = false;
                 while row < BOARD_HEIGHT && !stop {
-                    let position = Coordinates { row, col: position };
+                    let position = Coordinates::new(row, position);
                     match game_state.board.get_cell(&position) {
                         // A cell bomb must explode.
                         Cell::Bomb([_, _]) => {
@@ -381,10 +387,7 @@ impl Game {
                         Cell::Block => {
                             if row > 0 {
                                 game_state.board.update_cell(
-                                    Coordinates {
-                                        row: position.row - 1,
-                                        col: position.col,
-                                    },
+                                    Coordinates::new(position.row - 1, position.col),
                                     Cell::Stone(player),
                                 );
                             } else {
@@ -396,10 +399,7 @@ impl Game {
                         Cell::Stone(_) => {
                             if row > 0 {
                                 game_state.board.update_cell(
-                                    Coordinates {
-                                        row: position.row - 1,
-                                        col: position.col,
-                                    },
+                                    Coordinates::new(position.row - 1, position.col),
                                     Cell::Stone(player),
                                 );
                             } else {
@@ -415,7 +415,7 @@ impl Game {
                 let mut col = BOARD_WIDTH - 1;
 
                 loop {
-                    let position = Coordinates { row: position, col };
+                    let position = Coordinates::new(position, col);
                     match game_state.board.get_cell(&position) {
                         // A cell bomb must explode.
                         Cell::Bomb([_, _]) => {
@@ -433,10 +433,7 @@ impl Game {
                         Cell::Block => {
                             if col < BOARD_WIDTH - 1 {
                                 game_state.board.update_cell(
-                                    Coordinates {
-                                        row: position.row,
-                                        col: position.col + 1,
-                                    },
+                                    Coordinates::new(position.row, position.col + 1),
                                     Cell::Stone(player),
                                 );
                             } else {
@@ -448,10 +445,7 @@ impl Game {
                         Cell::Stone(_) => {
                             if col < BOARD_WIDTH - 1 {
                                 game_state.board.update_cell(
-                                    Coordinates {
-                                        row: position.row,
-                                        col: position.col + 1,
-                                    },
+                                    Coordinates::new(position.row, position.col + 1),
                                     Cell::Stone(player),
                                 );
                             } else {
@@ -470,7 +464,7 @@ impl Game {
                 let mut row = BOARD_HEIGHT - 1;
 
                 loop {
-                    let position = Coordinates { row, col: position };
+                    let position = Coordinates::new(row, position);
                     match game_state.board.get_cell(&position) {
                         // A cell bomb must explode.
                         Cell::Bomb([_, _]) => {
@@ -488,10 +482,7 @@ impl Game {
                         Cell::Block => {
                             if row < BOARD_HEIGHT - 1 {
                                 game_state.board.update_cell(
-                                    Coordinates {
-                                        row: position.row + 1,
-                                        col: position.col,
-                                    },
+                                    Coordinates::new(position.row + 1, position.col),
                                     Cell::Stone(player),
                                 );
                             } else {
@@ -503,10 +494,7 @@ impl Game {
                         Cell::Stone(_) => {
                             if row < BOARD_HEIGHT - 1 {
                                 game_state.board.update_cell(
-                                    Coordinates {
-                                        row: position.row + 1,
-                                        col: position.col,
-                                    },
+                                    Coordinates::new(position.row + 1, position.col),
                                     Cell::Stone(player),
                                 );
                             } else {
@@ -526,7 +514,7 @@ impl Game {
                 let mut col = 0;
                 let mut stop = false;
                 while col < BOARD_WIDTH && !stop {
-                    let position = Coordinates { row: position, col };
+                    let position = Coordinates::new(position, col);
                     match game_state.board.get_cell(&position) {
                         // A cell bomb must explode.
                         Cell::Bomb([_, _]) => {
@@ -544,10 +532,7 @@ impl Game {
                         Cell::Block => {
                             if col > 0 {
                                 game_state.board.update_cell(
-                                    Coordinates {
-                                        row: position.row,
-                                        col: position.col - 1,
-                                    },
+                                    Coordinates::new(position.row, position.col - 1),
                                     Cell::Stone(player),
                                 );
                             } else {
@@ -559,10 +544,7 @@ impl Game {
                         Cell::Stone(_) => {
                             if col < BOARD_WIDTH - 1 {
                                 game_state.board.update_cell(
-                                    Coordinates {
-                                        row: position.row,
-                                        col: position.col - 1,
-                                    },
+                                    Coordinates::new(position.row, position.col - 1),
                                     Cell::Stone(player),
                                 );
                             } else {
@@ -591,11 +573,11 @@ impl Game {
         // Check vertical
         for row in 0..BOARD_HEIGHT - 3 {
             for col in 0..BOARD_WIDTH {
-                let cell = board.get_cell(&Coordinates { row, col });
+                let cell = board.get_cell(&Coordinates::new(row, col));
                 if let Cell::Stone(player) = cell {
-                    if cell == board.get_cell(&Coordinates { row: row + 1, col })
-                        && cell == board.get_cell(&Coordinates { row: row + 2, col })
-                        && cell == board.get_cell(&Coordinates { row: row + 3, col })
+                    if cell == board.get_cell(&Coordinates::new(row + 1, col))
+                        && cell == board.get_cell(&Coordinates::new(row + 2, col))
+                        && cell == board.get_cell(&Coordinates::new(row + 3, col))
                     {
                         game_state.winner = Some(player);
                         break;
@@ -607,11 +589,11 @@ impl Game {
         // Check horizontal
         for row in 0..BOARD_HEIGHT {
             for col in 0..BOARD_WIDTH - 3 {
-                let cell = board.get_cell(&Coordinates { row, col });
+                let cell = board.get_cell(&Coordinates::new(row, col));
                 if let Cell::Stone(player) = cell {
-                    if cell == board.get_cell(&Coordinates { row, col: col + 1 })
-                        && cell == board.get_cell(&Coordinates { row, col: col + 2 })
-                        && cell == board.get_cell(&Coordinates { row, col: col + 3 })
+                    if cell == board.get_cell(&Coordinates::new(row, col + 1))
+                        && cell == board.get_cell(&Coordinates::new(row, col + 2))
+                        && cell == board.get_cell(&Coordinates::new(row, col + 3))
                     {
                         game_state.winner = Some(player);
                         break;
@@ -623,23 +605,11 @@ impl Game {
         // Check ascending diagonal
         for row in 3..BOARD_HEIGHT {
             for col in 0..BOARD_WIDTH - 3 {
-                let cell = board.get_cell(&Coordinates { row, col });
+                let cell = board.get_cell(&Coordinates::new(row, col));
                 if let Cell::Stone(player) = cell {
-                    if cell
-                        == board.get_cell(&Coordinates {
-                            row: row - 1,
-                            col: col + 1,
-                        })
-                        && cell
-                            == board.get_cell(&Coordinates {
-                                row: row - 2,
-                                col: col + 2,
-                            })
-                        && cell
-                            == board.get_cell(&Coordinates {
-                                row: row - 3,
-                                col: col + 3,
-                            })
+                    if cell == board.get_cell(&Coordinates::new(row - 1, col + 1))
+                        && cell == board.get_cell(&Coordinates::new(row - 2, col + 2))
+                        && cell == board.get_cell(&Coordinates::new(row - 3, col + 3))
                     {
                         game_state.winner = Some(player);
                         break;
@@ -651,23 +621,11 @@ impl Game {
         // Check diagonal descending
         for row in 0..BOARD_HEIGHT - 3 {
             for col in 0..BOARD_WIDTH - 3 {
-                let cell = board.get_cell(&Coordinates { row, col });
+                let cell = board.get_cell(&Coordinates::new(row, col));
                 if let Cell::Stone(player) = cell {
-                    if cell
-                        == board.get_cell(&Coordinates {
-                            row: row + 1,
-                            col: col + 1,
-                        })
-                        && cell
-                            == board.get_cell(&Coordinates {
-                                row: row + 2,
-                                col: col + 2,
-                            })
-                        && cell
-                            == board.get_cell(&Coordinates {
-                                row: row + 3,
-                                col: col + 3,
-                            })
+                    if cell == board.get_cell(&Coordinates::new(row + 1, col + 1))
+                        && cell == board.get_cell(&Coordinates::new(row + 2, col + 2))
+                        && cell == board.get_cell(&Coordinates::new(row + 3, col + 3))
                     {
                         game_state.winner = Some(player);
                         break;
