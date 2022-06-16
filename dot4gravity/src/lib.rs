@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use rand::prelude::SliceRandom;
 use scale_info::TypeInfo;
 
@@ -30,7 +30,7 @@ const NUM_OF_BLOCKS: usize = 10;
 type Player = u32;
 
 /// Represents a cell of the board.
-#[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Clone, Copy, Debug, Eq, PartialEq)]
 enum Cell {
     Empty,
     Bomb([Option<Player>; NUM_OF_PLAYERS]),
@@ -62,7 +62,7 @@ impl Cell {
 }
 
 /// Coordinates for a cell in the board.
-#[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Coordinates {
     pub row: u8,
     pub col: u8,
@@ -90,7 +90,7 @@ impl Coordinates {
 }
 
 /// Sides of the board from which a player can drop a stone.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Clone, Debug, Eq, PartialEq)]
 pub enum Side {
     North,
     East,
@@ -98,7 +98,7 @@ pub enum Side {
     West,
 }
 
-#[derive(Encode, Decode, TypeInfo, Copy, Clone, Eq, Debug, Default, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Copy, Clone, Eq, Debug, Default, PartialEq)]
 pub struct Board {
     cells: [[Cell; BOARD_WIDTH as usize]; BOARD_HEIGHT as usize],
 }
@@ -157,7 +157,7 @@ impl Board {
     }
 }
 
-#[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum GamePhase {
     /// Not turn based. The players place bombs during this phase.
     Bomb,
@@ -187,7 +187,7 @@ pub enum GameError {
     NoPreviousPosition,
 }
 
-#[derive(Encode, Decode, TypeInfo, Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Copy, Clone, Debug, Eq, PartialEq)]
 pub struct GameState {
     /// Represents the game board.
     pub board: Board,
