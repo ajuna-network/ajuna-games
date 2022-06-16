@@ -69,7 +69,7 @@ pub struct Coordinates {
 }
 
 impl Coordinates {
-    const fn new(row: u8, col: u8) -> Self {
+    pub const fn new(row: u8, col: u8) -> Self {
         Self { row, col }
     }
 
