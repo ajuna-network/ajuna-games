@@ -138,12 +138,10 @@ fn should_create_new_game() {
     assert_eq!(
         game_state.get_player_bombs(&ALICE),
         Some(NUM_OF_BOMBS_PER_PLAYER),
-        "Alice should have {NUM_OF_BOMBS_PER_PLAYER} bombs"
     );
     assert_eq!(
         game_state.get_player_bombs(&BOB),
         Some(NUM_OF_BOMBS_PER_PLAYER),
-        "Bob should have {NUM_OF_BOMBS_PER_PLAYER} bombs"
     );
     assert!(
         game_state.is_player_in_game(&ALICE),
