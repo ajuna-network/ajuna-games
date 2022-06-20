@@ -592,7 +592,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
         Ok(game_state)
     }
 
-    pub fn check_winner_player(mut game_state: GameState<Player>) -> GameState<Player> {
+    fn check_winner_player(mut game_state: GameState<Player>) -> GameState<Player> {
         if game_state.winner.is_some() {
             return game_state;
         }
