@@ -14,10 +14,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
-use rand::prelude::SliceRandom;
-use scale_info::TypeInfo;
+use fixed_hash::construct_fixed_hash;
+use scale_info::{prelude::vec::Vec, TypeInfo};
 
 #[cfg(test)]
 mod tests;
@@ -26,7 +28,7 @@ const BOARD_WIDTH: u8 = 10;
 const BOARD_HEIGHT: u8 = 10;
 const NUM_OF_PLAYERS: usize = 2;
 const NUM_OF_BOMBS_PER_PLAYER: u8 = 3;
-const NUM_OF_BLOCKS: usize = 10;
+const NUM_OF_BLOCKS: u8 = 10;
 
 type PlayerIndex = u8;
 
@@ -70,9 +72,20 @@ pub struct Coordinates {
     pub col: u8,
 }
 
+construct_fixed_hash! {
+    struct H8(1);
+}
+
 impl Coordinates {
     pub const fn new(row: u8, col: u8) -> Self {
         Self { row, col }
+    }
+
+    fn random() -> Self {
+        Coordinates::new(
+            H8::random()[0] % (BOARD_WIDTH - 1),
+            H8::random()[0] % (BOARD_HEIGHT - 1),
+        )
     }
 
     /// Tells if a cell is inside the board.
@@ -250,34 +263,6 @@ impl<Player: PartialEq> GameState<Player> {
     }
 }
 
-pub trait BlocksGenerator {
-    /// Add blocks to the board.
-    fn add_blocks(board: Board, num_of_blocks: usize) -> Board;
-}
-
-#[derive(Encode, Decode, TypeInfo)]
-pub struct RandomBlocksGenerator;
-
-impl BlocksGenerator for RandomBlocksGenerator {
-    /// Generates blocks randomly located.
-    fn add_blocks(mut board: Board, num_of_blocks: usize) -> Board {
-        let mut rng = rand::thread_rng();
-
-        let mut board_coordinates = Vec::new();
-        for row in 0..BOARD_HEIGHT {
-            for col in 0..BOARD_HEIGHT {
-                board_coordinates.push(Coordinates::new(row, col));
-            }
-        }
-        board_coordinates
-            .choose_multiple(&mut rng, num_of_blocks)
-            .cloned()
-            .for_each(|coordinates| board.update_cell(coordinates, Cell::Block));
-
-        board
-    }
-}
-
 #[derive(Encode, Decode, TypeInfo)]
 pub struct Game<Player>(PhantomData<Player>);
 
@@ -316,9 +301,22 @@ impl<Player: PartialEq> Game<Player> {
 
 impl<Player: PartialEq + Clone> Game<Player> {
     /// Create a new game.
-    pub fn new_game<R: BlocksGenerator>(player1: Player, player2: Player) -> GameState<Player> {
+    pub fn new_game(player1: Player, player2: Player) -> GameState<Player> {
+        let mut board = Board::new();
+        let mut blocks = Vec::new();
+        let mut remaining_blocks = NUM_OF_BLOCKS;
+
+        while remaining_blocks > 0 {
+            let block_coordinates = Coordinates::random();
+            if !blocks.contains(&block_coordinates) {
+                blocks.push(block_coordinates);
+                board.update_cell(block_coordinates, Cell::Block);
+                remaining_blocks -= 1;
+            }
+        }
+
         GameState {
-            board: R::add_blocks(Board::new(), NUM_OF_BLOCKS),
+            board,
             phase: Default::default(),
             winner: Default::default(),
             next_player: Default::default(),
