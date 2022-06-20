@@ -18,11 +18,15 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
-use fixed_hash::construct_fixed_hash;
 use scale_info::{prelude::vec::Vec, TypeInfo};
 
 #[cfg(test)]
 mod tests;
+
+const INITIAL_SEED: Seed = 123_456;
+const INCREMENT: Seed = 74;
+const MULTIPLIER: Seed = 75;
+const MODULUS: Seed = Seed::pow(2, 16);
 
 const BOARD_WIDTH: u8 = 10;
 const BOARD_HEIGHT: u8 = 10;
@@ -31,6 +35,7 @@ const NUM_OF_BOMBS_PER_PLAYER: u8 = 3;
 const NUM_OF_BLOCKS: u8 = 10;
 
 type PlayerIndex = u8;
+type Seed = u32;
 
 /// Represents a cell of the board.
 #[allow(private_in_public)]
@@ -72,19 +77,25 @@ pub struct Coordinates {
     pub col: u8,
 }
 
-construct_fixed_hash! {
-    struct H8(1);
-}
-
 impl Coordinates {
     pub const fn new(row: u8, col: u8) -> Self {
         Self { row, col }
     }
 
-    fn random() -> Self {
-        Coordinates::new(
-            H8::random()[0] % (BOARD_WIDTH - 1),
-            H8::random()[0] % (BOARD_HEIGHT - 1),
+    fn random(seed: Seed) -> (Self, Seed) {
+        let linear_congruential_generator = |seed: Seed| -> Seed {
+            MULTIPLIER.saturating_mul(seed).saturating_add(INCREMENT) % MODULUS
+        };
+
+        let random_seed_1 = linear_congruential_generator(seed);
+        let random_seed_2 = linear_congruential_generator(random_seed_1);
+
+        (
+            Coordinates::new(
+                (random_seed_1 % (BOARD_WIDTH as Seed - 1)) as u8,
+                (random_seed_2 % (BOARD_HEIGHT as Seed - 1)) as u8,
+            ),
+            random_seed_2,
         )
     }
 
@@ -205,6 +216,8 @@ pub enum GameError {
 
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Copy, Clone, Debug, Eq, PartialEq)]
 pub struct GameState<Player> {
+    /// Represents random seed.
+    pub seed: Seed,
     /// Represents the game board.
     pub board: Board,
     /// Game mode.
@@ -301,13 +314,16 @@ impl<Player: PartialEq> Game<Player> {
 
 impl<Player: PartialEq + Clone> Game<Player> {
     /// Create a new game.
-    pub fn new_game(player1: Player, player2: Player) -> GameState<Player> {
+    pub fn new_game(player1: Player, player2: Player, seed: Option<Seed>) -> GameState<Player> {
         let mut board = Board::new();
         let mut blocks = Vec::new();
         let mut remaining_blocks = NUM_OF_BLOCKS;
 
+        let mut seed = seed.unwrap_or(INITIAL_SEED);
+
         while remaining_blocks > 0 {
-            let block_coordinates = Coordinates::random();
+            let (block_coordinates, new_seed) = Coordinates::random(seed);
+            seed = new_seed;
             if !blocks.contains(&block_coordinates) {
                 blocks.push(block_coordinates);
                 board.update_cell(block_coordinates, Cell::Block);
@@ -316,6 +332,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
         }
 
         GameState {
+            seed,
             board,
             phase: Default::default(),
             winner: Default::default(),

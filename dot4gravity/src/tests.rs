@@ -61,7 +61,7 @@ fn board_cell_can_be_changed() {
 
 #[test]
 fn should_create_new_game() {
-    let game_state = Game::new_game(ALICE, BOB);
+    let game_state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     assert_eq!(
         game_state.phase,
         GamePhase::Bomb,
@@ -102,18 +102,33 @@ fn should_create_new_game_with_random_blocks() {
         block_count
     };
 
+    let (mut seed_1, mut seed_2) = (123, 456);
     for _ in 0..20 {
-        let game_1 = Game::new_game(ALICE, BOB);
-        let game_2 = Game::new_game(ALICE, BOB);
+        let game_1 = Game::new_game(ALICE, BOB, Some(seed_1));
+        let game_2 = Game::new_game(ALICE, BOB, Some(seed_2));
         assert_ne!(game_1.board, game_2.board);
         assert_eq!(blocks(game_1.board), NUM_OF_BLOCKS);
         assert_eq!(blocks(game_2.board), NUM_OF_BLOCKS);
+        assert_ne!(seed_1, game_1.seed, "seed 1 should be updated");
+        assert_ne!(seed_2, game_2.seed, "seed 2 should be updated");
+        seed_1 = game_1.seed;
+        seed_2 = game_2.seed;
+    }
+}
+
+#[test]
+fn should_create_new_game_with_deterministic_blocks_with_fixed_seed() {
+    let seed = 7357;
+    for _ in 0..20 {
+        let game_1 = Game::new_game(ALICE, BOB, Some(seed));
+        let game_2 = Game::new_game(ALICE, BOB, Some(seed));
+        assert_eq!(game_1.board, game_2.board);
     }
 }
 
 #[test]
 fn a_player_cannot_drop_bomb_in_play_phase() {
-    let mut game_state = Game::new_game(ALICE, BOB);
+    let mut game_state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     game_state.phase = GamePhase::Play;
     let result = Game::drop_bomb(game_state, TEST_COORDINATES, ALICE);
     assert_eq!(result, Err(GameError::DroppedBombDuringPlayPhase));
@@ -122,7 +137,7 @@ fn a_player_cannot_drop_bomb_in_play_phase() {
 #[test]
 fn a_player_cannot_drop_bomb_if_already_dropped_all() {
     for n in 0..NUM_OF_BOMBS_PER_PLAYER {
-        let mut game_state = Game::new_game(ALICE, BOB);
+        let mut game_state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
         game_state.bombs = [(ALICE, 0), (BOB, n)];
         assert_eq!(
             Game::drop_bomb(game_state, TEST_COORDINATES, ALICE),
@@ -139,7 +154,7 @@ fn a_player_cannot_drop_bomb_if_already_dropped_all() {
 
 #[test]
 fn a_player_drops_a_bomb() {
-    let mut game_state = Game::new_game(ALICE, BOB);
+    let mut game_state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     game_state.board.update_cell(TEST_COORDINATES, Cell::Empty);
 
     let player_bombs = game_state.get_player_bombs(&ALICE).unwrap();
@@ -159,7 +174,7 @@ fn a_player_drops_a_bomb() {
 
 #[test]
 fn a_cell_can_hold_one_or_more_bombs_from_different_players() {
-    let mut game_state = Game::new_game(ALICE, BOB);
+    let mut game_state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     let (alice_index, bob_index) = (
         game_state.player_index(&ALICE),
         game_state.player_index(&BOB),
@@ -187,7 +202,7 @@ fn a_cell_can_hold_one_or_more_bombs_from_different_players() {
 
 #[test]
 fn a_cell_cannot_hold_more_than_allowed_number_of_bombs() {
-    let mut game_state = Game::new_game(ALICE, BOB);
+    let mut game_state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     let (alice_index, bob_index) = (
         game_state.player_index(&ALICE),
         game_state.player_index(&BOB),
@@ -206,7 +221,7 @@ fn a_cell_cannot_hold_more_than_allowed_number_of_bombs() {
 
 #[test]
 fn a_bomb_cannot_be_placed_in_a_cell_occupied_by_a_block() {
-    let mut game_state = Game::new_game(ALICE, BOB);
+    let mut game_state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     game_state.board.update_cell(TEST_COORDINATES, Cell::Block);
     assert_eq!(
         Game::drop_bomb(game_state, TEST_COORDINATES, ALICE),
@@ -220,7 +235,7 @@ fn a_bomb_cannot_be_placed_in_a_cell_occupied_by_a_block() {
 
 #[test]
 fn a_player_cannot_place_more_than_one_bomb_in_a_cell() {
-    let mut game_state = Game::new_game(ALICE, BOB);
+    let mut game_state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     let alice_index = game_state.player_index(&ALICE);
     game_state.board.update_cell(TEST_COORDINATES, Cell::Empty);
 
@@ -244,7 +259,7 @@ fn a_player_cannot_place_more_than_one_bomb_in_a_cell() {
 
 #[test]
 fn a_game_can_change_game_phase() {
-    let game_state = Game::new_game(ALICE, BOB);
+    let game_state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     assert_eq!(game_state.phase, GamePhase::Bomb);
     let game_state = Game::change_game_phase(game_state, GamePhase::Play);
     assert_eq!(game_state.phase, GamePhase::Play);
@@ -254,14 +269,14 @@ fn a_game_can_change_game_phase() {
 
 #[test]
 fn a_player_cannot_drop_a_stone_out_of_turn() {
-    let state = Game::new_game(ALICE, BOB);
+    let state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     let drop_stone_result = Game::drop_stone(state, BOB, Side::North, 0);
     assert_eq!(drop_stone_result, Err(GameError::NotPlayerTurn));
 }
 
 #[test]
 fn player_turn_changes_after_dropping_stone() {
-    let mut state = Game::new_game(CHARLIE, BOB);
+    let mut state = Game::new_game(CHARLIE, BOB, Some(INITIAL_SEED));
     for i in 0..BOARD_WIDTH {
         state.board.update_cell(Coordinates::new(i, 0), Cell::Empty);
     }
@@ -294,7 +309,7 @@ fn a_stone_dropped_from_north_side_should_move_until_it_reaches_an_obstacle() {
         [o, b, o, o, o, o, o, o, o, o],
     ];
 
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     state.board.cells = cells;
 
     let state = Game::drop_stone(state, ALICE, Side::North, 0).unwrap();
@@ -337,7 +352,7 @@ fn a_stone_dropped_from_south_side_should_move_until_it_reaches_an_obstacle() {
         [o, o, o, b, o, o, o, o, o, o],
     ];
 
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     let (alice_index, bob_index) = (state.player_index(&ALICE), state.player_index(&BOB));
     state.board.cells = cells;
 
@@ -380,7 +395,7 @@ fn a_stone_dropped_from_east_side_should_move_until_it_reaches_an_obstacle() {
         [o, o, o, o, o, o, o, o, o, o],
     ];
 
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     let (alice_index, bob_index) = (state.player_index(&ALICE), state.player_index(&BOB));
     state.board.cells = cells;
 
@@ -423,7 +438,7 @@ fn a_stone_dropped_from_west_side_should_move_until_it_reaches_an_obstacle() {
         [o, o, o, o, o, o, o, o, o, o],
     ];
 
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     state.board.cells = cells;
 
     let state = Game::drop_stone(state, ALICE, Side::West, 0).unwrap();
@@ -450,7 +465,7 @@ fn a_stone_dropped_from_west_side_should_move_until_it_reaches_an_obstacle() {
 
 #[test]
 fn a_stone_should_explode_a_bomb_when_passing_through() {
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     let (alice_index, bob_index) = (state.player_index(&ALICE), state.player_index(&BOB));
     let o = Cell::Empty;
     let b = Cell::Bomb([Some(alice_index), Some(bob_index)]);
@@ -532,7 +547,7 @@ fn a_stone_should_explode_a_bomb_when_passing_through() {
 
 #[test]
 fn a_player_wins_when_has_a_four_stone_vertical_row() {
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     let alice_index = state.player_index(&ALICE);
     let o = Cell::Empty;
     let s = Cell::Stone(alice_index);
@@ -555,7 +570,7 @@ fn a_player_wins_when_has_a_four_stone_vertical_row() {
 
 #[test]
 fn a_player_wins_when_has_a_four_stone_horizontal_row() {
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     let alice_index = state.player_index(&ALICE);
     let o = Cell::Empty;
     let s = Cell::Stone(alice_index);
@@ -578,7 +593,7 @@ fn a_player_wins_when_has_a_four_stone_horizontal_row() {
 
 #[test]
 fn a_player_wins_when_has_a_four_stone_ascending_diagonal_row() {
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     let alice_index = state.player_index(&ALICE);
     let o = Cell::Empty;
     let s = Cell::Stone(alice_index);
@@ -601,7 +616,7 @@ fn a_player_wins_when_has_a_four_stone_ascending_diagonal_row() {
 
 #[test]
 fn a_player_wins_when_has_a_four_stone_descending_diagonal_row() {
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     let alice_index = state.player_index(&ALICE);
     let o = Cell::Empty;
     let s = Cell::Stone(alice_index);
@@ -624,7 +639,7 @@ fn a_player_wins_when_has_a_four_stone_descending_diagonal_row() {
 
 #[test]
 fn no_player_wins_for_less_than_four_in_a_row_stones() {
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     let o = Cell::Empty;
     let b = Cell::Block;
     let r = Cell::Stone(state.player_index(&ALICE));
@@ -651,7 +666,7 @@ fn should_play_a_game() {
     let o = Cell::Empty;
     let b = Cell::Block;
 
-    let mut state = Game::new_game(ALICE, BOB);
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     state.board.cells = [
         [o, o, o, o, o, o, o, o, b, o],
         [b, o, o, o, o, o, o, o, o, o],
