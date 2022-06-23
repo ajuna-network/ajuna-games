@@ -293,6 +293,35 @@ fn player_turn_changes_after_dropping_stone() {
 }
 
 #[test]
+fn a_stone_dropped_on_a_stone() {
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
+    let (alice_index, bob_index) = (state.player_index(&ALICE), state.player_index(&BOB));
+
+    let o = Cell::Empty;
+    let x = Cell::Stone(bob_index);
+    let cells = [
+        [x, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+    ];
+
+    state.board.cells = cells;
+
+    let state = Game::drop_stone(state, ALICE, Side::West, 0).unwrap();
+    assert_eq!(
+        state.board.get_cell(&Coordinates { row: 0, col: 0 }),
+        Cell::Stone(alice_index)
+    );
+}
+
+#[test]
 fn a_stone_dropped_from_north_side_should_move_until_it_reaches_an_obstacle() {
     let o = Cell::Empty;
     let b = Cell::Block;
