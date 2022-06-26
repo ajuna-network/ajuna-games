@@ -426,7 +426,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                         Cell::Block => {
                             if row > 0 {
                                 game_state.board.update_cell(
-                                    Coordinates::new(position.row - 1, position.col),
+                                    Coordinates::new(position.row.saturating_sub(1), position.col),
                                     Cell::Stone(player_index),
                                 );
                             } else {
@@ -438,7 +438,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                         Cell::Stone(_) => {
                             if row > 0 {
                                 game_state.board.update_cell(
-                                    Coordinates::new(position.row - 1, position.col),
+                                    Coordinates::new(position.row.saturating_sub(1), position.col),
                                     Cell::Stone(player_index),
                                 );
                             } else {
@@ -577,7 +577,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                         Cell::Block => {
                             if col > 0 {
                                 game_state.board.update_cell(
-                                    Coordinates::new(position.row, position.col - 1),
+                                    Coordinates::new(position.row, position.col.saturating_sub(1)),
                                     Cell::Stone(player_index),
                                 );
                             } else {
@@ -589,7 +589,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                         Cell::Stone(_) => {
                             if col < BOARD_WIDTH - 1 {
                                 game_state.board.update_cell(
-                                    Coordinates::new(position.row, position.col - 1),
+                                    Coordinates::new(position.row, position.col.saturating_sub(1)),
                                     Cell::Stone(player_index),
                                 );
                             } else {
