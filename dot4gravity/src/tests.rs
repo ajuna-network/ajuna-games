@@ -300,7 +300,7 @@ fn a_stone_dropped_on_a_stone() {
     let o = Cell::Empty;
     let x = Cell::Stone(bob_index);
     let cells = [
-        [x, o, o, o, o, o, o, o, o, o],
+        [o, x, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
@@ -319,6 +319,72 @@ fn a_stone_dropped_on_a_stone() {
         state.board.get_cell(&Coordinates { row: 0, col: 0 }),
         Cell::Stone(alice_index)
     );
+    assert_eq!(
+        state.board.get_cell(&Coordinates { row: 0, col: 1 }),
+        Cell::Stone(bob_index)
+    );
+}
+
+#[test]
+fn a_stone_cannot_be_dropped_at_bounds() {
+    let state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
+
+    let mut state_with_stones_at_bounds = state;
+    let o = Cell::Empty;
+    let x = Cell::Stone(state.player_index(&BOB));
+    state_with_stones_at_bounds.board.cells = [
+        [x, x, x, x, x, x, x, x, x, x],
+        [x, o, o, o, o, o, o, o, o, x],
+        [x, o, o, o, o, o, o, o, o, x],
+        [x, o, o, o, o, o, o, o, o, x],
+        [x, o, o, o, o, o, o, o, o, x],
+        [x, o, o, o, o, o, o, o, o, x],
+        [x, o, o, o, o, o, o, o, o, x],
+        [x, o, o, o, o, o, o, o, o, x],
+        [x, o, o, o, o, o, o, o, o, x],
+        [x, x, x, x, x, x, x, x, x, x],
+    ];
+
+    let mut state_with_blocks_at_bounds = state;
+    let b = Cell::Block;
+    state_with_blocks_at_bounds.board.cells = [
+        [b, b, b, b, b, b, b, b, b, b],
+        [b, o, o, o, o, o, o, o, o, b],
+        [b, o, o, o, o, o, o, o, o, b],
+        [b, o, o, o, o, o, o, o, o, b],
+        [b, o, o, o, o, o, o, o, o, b],
+        [b, o, o, o, o, o, o, o, o, b],
+        [b, o, o, o, o, o, o, o, o, b],
+        [b, o, o, o, o, o, o, o, o, b],
+        [b, o, o, o, o, o, o, o, o, b],
+        [b, b, b, b, b, b, b, b, b, x],
+    ];
+
+    for state in [state_with_stones_at_bounds, state_with_blocks_at_bounds] {
+        // left -> right check, dropping stones from top and bottom
+        for position in 0..BOARD_WIDTH {
+            assert_eq!(
+                Game::drop_stone(state, ALICE, Side::North, position),
+                Err(GameError::InvalidStonePosition)
+            );
+            assert_eq!(
+                Game::drop_stone(state, ALICE, Side::South, position),
+                Err(GameError::InvalidStonePosition)
+            );
+        }
+
+        // top -> bottom check, dropping stones from left and right
+        for position in 0..BOARD_HEIGHT {
+            assert_eq!(
+                Game::drop_stone(state, ALICE, Side::West, position),
+                Err(GameError::InvalidStonePosition)
+            );
+            assert_eq!(
+                Game::drop_stone(state, ALICE, Side::East, position),
+                Err(GameError::InvalidStonePosition)
+            );
+        }
+    }
 }
 
 #[test]

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Coordinates, BOARD_HEIGHT, BOARD_WIDTH};
+use crate::{Coordinates, Position, BOARD_HEIGHT, BOARD_WIDTH};
 
 pub(crate) trait Bound {
     /// Tells if something is inside the board.
@@ -24,5 +24,11 @@ pub(crate) trait Bound {
 impl Bound for Coordinates {
     fn is_inside_board(&self) -> bool {
         self.row < BOARD_WIDTH && self.col < BOARD_HEIGHT
+    }
+}
+
+impl Bound for Position {
+    fn is_inside_board(&self) -> bool {
+        self < &BOARD_WIDTH && self < &BOARD_HEIGHT
     }
 }

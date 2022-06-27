@@ -37,6 +37,7 @@ const NUM_OF_BOMBS_PER_PLAYER: u8 = 3;
 const NUM_OF_BLOCKS: u8 = 10;
 
 type PlayerIndex = u8;
+type Position = u8;
 type Seed = u32;
 
 /// Represents a cell of the board.
@@ -69,6 +70,10 @@ impl Cell {
     /// Tells if a cell must be cleared when it's affected by an explosion.
     fn is_explodable(&self) -> bool {
         *self != Cell::Block
+    }
+
+    fn is_stone_droppable(&self) -> bool {
+        !matches!(self, Cell::Block | Cell::Stone(_))
     }
 }
 
@@ -121,6 +126,17 @@ pub enum Side {
     West,
 }
 
+impl Side {
+    fn bound_coordinates(&self, position: Position) -> Coordinates {
+        match self {
+            Side::North => Coordinates::new(0, position),
+            Side::South => Coordinates::new(BOARD_HEIGHT - 1, position),
+            Side::West => Coordinates::new(position, 0),
+            Side::East => Coordinates::new(position, BOARD_WIDTH - 1),
+        }
+    }
+}
+
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Copy, Clone, Eq, Debug, Default, PartialEq)]
 pub struct Board {
     cells: [[Cell; BOARD_WIDTH as usize]; BOARD_HEIGHT as usize],
@@ -137,6 +153,10 @@ impl Board {
 
     fn is_explodable(&self, position: &Coordinates) -> bool {
         position.is_inside_board() && self.get_cell(position).is_explodable()
+    }
+
+    fn is_stone_droppable(&self, position: &Coordinates) -> bool {
+        position.is_inside_board() && self.get_cell(position).is_stone_droppable()
     }
 
     fn get_cell(&self, position: &Coordinates) -> Cell {
@@ -296,14 +316,18 @@ impl<Player: PartialEq> Game<Player> {
 
     fn can_drop_stone(
         game_state: &GameState<Player>,
-        position: u8,
+        side: &Side,
+        position: Position,
         player: &Player,
     ) -> Result<(), GameError> {
-        if position >= BOARD_HEIGHT || position >= BOARD_WIDTH {
-            return Err(GameError::InvalidStonePosition);
-        }
         if !game_state.is_player_turn(player) {
             return Err(GameError::NotPlayerTurn);
+        }
+        if !game_state
+            .board
+            .is_stone_droppable(&side.bound_coordinates(position))
+        {
+            return Err(GameError::InvalidStonePosition);
         }
         Ok(())
     }
@@ -396,7 +420,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
         side: Side,
         position: u8,
     ) -> Result<GameState<Player>, GameError> {
-        Self::can_drop_stone(&game_state, position, &player)?;
+        Self::can_drop_stone(&game_state, &side, position, &player)?;
         let player_index = game_state.player_index(&player);
         match side {
             Side::North => {
