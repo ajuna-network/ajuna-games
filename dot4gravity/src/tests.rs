@@ -268,8 +268,19 @@ fn a_game_can_change_game_phase() {
 }
 
 #[test]
-fn a_player_cannot_drop_a_stone_out_of_turn() {
+fn a_player_cannot_drop_a_stone_in_bomb_phase() {
     let state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
+    assert_eq!(state.phase, GamePhase::Bomb);
+    assert_eq!(
+        Game::drop_stone(state, BOB, Side::North, 0),
+        Err(GameError::DroppedStoneDuringBombPhase)
+    );
+}
+
+#[test]
+fn a_player_cannot_drop_a_stone_out_of_turn() {
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
+    state.phase = GamePhase::Play;
     let drop_stone_result = Game::drop_stone(state, BOB, Side::North, 0);
     assert_eq!(drop_stone_result, Err(GameError::NotPlayerTurn));
 }
@@ -313,6 +324,7 @@ fn a_stone_dropped_on_a_stone() {
     ];
 
     state.board.cells = cells;
+    state.phase = GamePhase::Play;
 
     let state = Game::drop_stone(state, ALICE, Side::West, 0).unwrap();
     assert_eq!(
@@ -327,7 +339,8 @@ fn a_stone_dropped_on_a_stone() {
 
 #[test]
 fn a_stone_cannot_be_dropped_at_bounds() {
-    let state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
+    state.phase = GamePhase::Play;
 
     let mut state_with_stones_at_bounds = state;
     let o = Cell::Empty;
@@ -406,6 +419,7 @@ fn a_stone_dropped_from_north_side_should_move_until_it_reaches_an_obstacle() {
 
     let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     state.board.cells = cells;
+    state.phase = GamePhase::Play;
 
     let state = Game::drop_stone(state, ALICE, Side::North, 0).unwrap();
     let (alice_index, bob_index) = (state.player_index(&ALICE), state.player_index(&BOB));
@@ -450,6 +464,7 @@ fn a_stone_dropped_from_south_side_should_move_until_it_reaches_an_obstacle() {
     let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     let (alice_index, bob_index) = (state.player_index(&ALICE), state.player_index(&BOB));
     state.board.cells = cells;
+    state.phase = GamePhase::Play;
 
     let state = Game::drop_stone(state, ALICE, Side::South, 0).unwrap();
     assert_eq!(
@@ -493,6 +508,7 @@ fn a_stone_dropped_from_east_side_should_move_until_it_reaches_an_obstacle() {
     let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     let (alice_index, bob_index) = (state.player_index(&ALICE), state.player_index(&BOB));
     state.board.cells = cells;
+    state.phase = GamePhase::Play;
 
     let state = Game::drop_stone(state, ALICE, Side::East, 0).unwrap();
     assert_eq!(
@@ -535,6 +551,7 @@ fn a_stone_dropped_from_west_side_should_move_until_it_reaches_an_obstacle() {
 
     let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     state.board.cells = cells;
+    state.phase = GamePhase::Play;
 
     let state = Game::drop_stone(state, ALICE, Side::West, 0).unwrap();
     let (alice_index, bob_index) = (state.player_index(&ALICE), state.player_index(&BOB));
@@ -578,6 +595,7 @@ fn a_stone_should_explode_a_bomb_when_passing_through() {
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, b, o, o, o, o, o],
     ];
+    state.phase = GamePhase::Play;
 
     let dropping_stone_result = Game::drop_stone(state.clone(), ALICE, Side::North, 5);
     assert!(dropping_stone_result.is_ok());

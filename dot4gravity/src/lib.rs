@@ -217,8 +217,10 @@ impl Default for GamePhase {
 
 #[derive(Encode, Decode, TypeInfo, Debug, Eq, PartialEq)]
 pub enum GameError {
-    /// Tried to drop a bomb during game play phase.
+    /// Tried to drop a bomb during play phase.
     DroppedBombDuringPlayPhase,
+    /// Tried to drop a stone during bomb phase.
+    DroppedStoneDuringBombPhase,
     /// The player has no more bombs to drop.
     NoMoreBombsAvailable,
     /// Tried to drop a bomb in an invalid cell. The cell is already taken.
@@ -302,7 +304,7 @@ impl<Player: PartialEq> Game<Player> {
         position: &Coordinates,
         player: &Player,
     ) -> Result<(), GameError> {
-        if game_state.phase == GamePhase::Play {
+        if game_state.phase != GamePhase::Bomb {
             return Err(GameError::DroppedBombDuringPlayPhase);
         }
         if game_state.is_all_player_bomb_dropped(player) {
@@ -320,6 +322,9 @@ impl<Player: PartialEq> Game<Player> {
         position: Position,
         player: &Player,
     ) -> Result<(), GameError> {
+        if game_state.phase != GamePhase::Play {
+            return Err(GameError::DroppedStoneDuringBombPhase);
+        }
         if !game_state.is_player_turn(player) {
             return Err(GameError::NotPlayerTurn);
         }
