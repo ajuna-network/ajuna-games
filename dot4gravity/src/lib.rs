@@ -206,8 +206,8 @@ pub enum GameError {
     NoMoreBombsAvailable,
     /// Tried to drop a bomb in an invalid cell. The cell is already taken.
     InvalidBombPosition,
-    /// Tried to drop in an invalid position.
-    InvalidDroppingPosition,
+    /// Tried to drop a stone in an invalid cell. The cell is already taken.
+    InvalidStonePosition,
     /// Tried to drop a stone during other player's turn
     NotPlayerTurn,
     /// The cell has no previous position. It is an edge cell.
@@ -303,7 +303,7 @@ impl<Player: PartialEq> Game<Player> {
         player: &Player,
     ) -> Result<(), GameError> {
         if position >= BOARD_HEIGHT || position >= BOARD_WIDTH {
-            return Err(GameError::InvalidDroppingPosition);
+            return Err(GameError::InvalidStonePosition);
         }
         if !game_state.is_player_turn(player) {
             return Err(GameError::NotPlayerTurn);
@@ -430,7 +430,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                                     Cell::Stone(player_index),
                                 );
                             } else {
-                                return Err(GameError::InvalidDroppingPosition);
+                                return Err(GameError::InvalidStonePosition);
                             }
                             stop = true;
                         }
@@ -442,7 +442,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                                     Cell::Stone(player_index),
                                 );
                             } else {
-                                return Err(GameError::InvalidDroppingPosition);
+                                return Err(GameError::InvalidStonePosition);
                             }
                             stop = true;
                         }
@@ -478,7 +478,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                                     Cell::Stone(player_index),
                                 );
                             } else {
-                                return Err(GameError::InvalidDroppingPosition);
+                                return Err(GameError::InvalidStonePosition);
                             }
                             break;
                         }
@@ -490,7 +490,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                                     Cell::Stone(player_index),
                                 );
                             } else {
-                                return Err(GameError::InvalidDroppingPosition);
+                                return Err(GameError::InvalidStonePosition);
                             }
                             break;
                         }
@@ -529,7 +529,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                                     Cell::Stone(player_index),
                                 );
                             } else {
-                                return Err(GameError::InvalidDroppingPosition);
+                                return Err(GameError::InvalidStonePosition);
                             }
                             break;
                         }
@@ -541,7 +541,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                                     Cell::Stone(player_index),
                                 );
                             } else {
-                                return Err(GameError::InvalidDroppingPosition);
+                                return Err(GameError::InvalidStonePosition);
                             }
                             break;
                         }
@@ -581,7 +581,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                                     Cell::Stone(player_index),
                                 );
                             } else {
-                                return Err(GameError::InvalidDroppingPosition);
+                                return Err(GameError::InvalidStonePosition);
                             }
                             stop = true;
                         }
@@ -593,7 +593,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                                     Cell::Stone(player_index),
                                 );
                             } else {
-                                return Err(GameError::InvalidDroppingPosition);
+                                return Err(GameError::InvalidStonePosition);
                             }
                             stop = true;
                         }

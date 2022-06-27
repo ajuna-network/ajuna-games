@@ -359,7 +359,7 @@ fn a_stone_dropped_from_north_side_should_move_until_it_reaches_an_obstacle() {
     );
     assert_eq!(
         Game::drop_stone(state, BOB, Side::North, 3).unwrap_err(),
-        GameError::InvalidDroppingPosition
+        GameError::InvalidStonePosition
     );
 }
 
@@ -402,7 +402,7 @@ fn a_stone_dropped_from_south_side_should_move_until_it_reaches_an_obstacle() {
     );
     assert_eq!(
         Game::drop_stone(state, BOB, Side::South, 3).unwrap_err(),
-        GameError::InvalidDroppingPosition
+        GameError::InvalidStonePosition
     );
 }
 
@@ -445,7 +445,7 @@ fn a_stone_dropped_from_east_side_should_move_until_it_reaches_an_obstacle() {
     );
     assert_eq!(
         Game::drop_stone(state, BOB, Side::East, 3).unwrap_err(),
-        GameError::InvalidDroppingPosition
+        GameError::InvalidStonePosition
     );
 }
 
@@ -488,7 +488,7 @@ fn a_stone_dropped_from_west_side_should_move_until_it_reaches_an_obstacle() {
     );
     assert_eq!(
         Game::drop_stone(state, BOB, Side::West, 3).unwrap_err(),
-        GameError::InvalidDroppingPosition
+        GameError::InvalidStonePosition
     );
 }
 
