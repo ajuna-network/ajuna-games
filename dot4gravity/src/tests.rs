@@ -62,6 +62,8 @@ fn board_cell_can_be_changed() {
 #[test]
 fn should_create_new_game() {
     let game_state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
+    let computed_from_initial_seed = 46_384;
+    assert_eq!(game_state.seed, computed_from_initial_seed);
     assert_eq!(
         game_state.phase,
         GamePhase::Bomb,
@@ -86,6 +88,7 @@ fn should_create_new_game() {
         game_state.is_player_in_game(&BOB),
         "Player Bob should be in the game"
     );
+    assert_eq!(game_state.last_move, None);
 }
 
 #[test]
@@ -150,6 +153,15 @@ fn a_player_cannot_drop_bomb_if_already_dropped_all() {
             Err(GameError::NoMoreBombsAvailable)
         );
     }
+}
+
+#[test]
+fn dropping_bomb_should_not_update_last_move() {
+    let mut game_state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
+    game_state.board.update_cell(TEST_COORDINATES, Cell::Empty);
+
+    assert!(Game::drop_bomb(game_state, TEST_COORDINATES, ALICE).is_ok());
+    assert_eq!(game_state.last_move, None);
 }
 
 #[test]
@@ -301,6 +313,23 @@ fn player_turn_changes_after_dropping_stone() {
 
     let drop_stone_result = Game::drop_stone(state, BOB, Side::North, 0);
     assert!(drop_stone_result.is_ok());
+}
+
+#[test]
+fn last_move_changes_after_dropping_stone() {
+    let mut state = Game::new_game(BOB, ALICE, Some(INITIAL_SEED));
+    state.phase = GamePhase::Play;
+    assert_eq!(state.last_move, None);
+
+    for (player, side, position) in [
+        (BOB, Side::West, 2),
+        (BOB, Side::East, 1),
+        (BOB, Side::North, 6),
+        (BOB, Side::South, 8),
+    ] {
+        let state = Game::drop_stone(state, player, side, position).unwrap();
+        assert_eq!(state.last_move, Some(LastMove::new(player, side, position)));
+    }
 }
 
 #[test]
