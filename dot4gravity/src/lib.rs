@@ -16,12 +16,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use crate::traits::Bound;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::{prelude::vec::Vec, TypeInfo};
 
 #[cfg(test)]
 mod tests;
+mod traits;
 
 const INITIAL_SEED: Seed = 123_456;
 const INCREMENT: Seed = 74;
@@ -97,11 +99,6 @@ impl Coordinates {
             ),
             random_seed_2,
         )
-    }
-
-    /// Tells if a cell is inside the board.
-    fn is_inside_board(&self) -> bool {
-        self.row < BOARD_WIDTH && self.col < BOARD_HEIGHT
     }
 
     /// Tells if a cell is in the opposite of a side.
