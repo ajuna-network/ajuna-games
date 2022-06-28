@@ -309,15 +309,13 @@ impl<Player: PartialEq + Clone> GameState<Player> {
         player_index
     }
 
-    fn next_player(&self) -> Player {
-        self.players
+    fn next_player(&self) -> &Player {
+        let current_player_index = self
+            .players
             .iter()
             .position(|player| *player == self.next_player)
-            .map(|current_player_index| {
-                let next_player_index = (current_player_index + 1) % NUM_OF_PLAYERS;
-                self.players[next_player_index].clone()
-            })
-            .expect("next_player to be a subset of players")
+            .expect("next player to be a subset of players");
+        &self.players[(current_player_index + 1) % NUM_OF_PLAYERS]
     }
 }
 
@@ -657,7 +655,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
         }
 
         game_state.last_move = Some(LastMove::new(player, side, position));
-        game_state.next_player = game_state.next_player();
+        game_state.next_player = game_state.next_player().clone();
         game_state = Game::check_winner_player(game_state);
 
         Ok(game_state)
