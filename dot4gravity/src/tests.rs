@@ -131,7 +131,7 @@ fn a_player_cannot_drop_bomb_in_play_phase() {
     let mut game_state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     game_state.phase = GamePhase::Play;
     let result = Game::drop_bomb(game_state, TEST_COORDINATES, ALICE);
-    assert_eq!(result, Err(GameError::DroppedBombDuringPlayPhase));
+    assert_eq!(result, Err(GameError::DroppedBombOutsideBombPhase));
 }
 
 #[test]
@@ -273,7 +273,7 @@ fn a_player_cannot_drop_a_stone_in_bomb_phase() {
     assert_eq!(state.phase, GamePhase::Bomb);
     assert_eq!(
         Game::drop_stone(state, BOB, Side::North, 0),
-        Err(GameError::DroppedStoneDuringBombPhase)
+        Err(GameError::DroppedStoneOutsidePlayPhase)
     );
 }
 
