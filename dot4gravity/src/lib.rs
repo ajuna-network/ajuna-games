@@ -59,12 +59,7 @@ impl Default for Cell {
 impl Cell {
     /// Tells if a cell is suitable for dropping a bomb.
     fn is_bomb_droppable(&self) -> bool {
-        *self == Cell::Empty || self.is_bomb()
-    }
-
-    /// Tells if a cell is of type 'bomb'
-    fn is_bomb(&self) -> bool {
-        matches!(self, Cell::Bomb(_))
+        matches!(self, Cell::Empty | Cell::Bomb(_))
     }
 
     /// Tells if a cell must be cleared when it's affected by an explosion.
@@ -72,6 +67,7 @@ impl Cell {
         *self != Cell::Block
     }
 
+    /// Tells if a cell is suitable for dropping a stone.
     fn is_stone_droppable(&self) -> bool {
         !matches!(self, Cell::Block | Cell::Stone(_))
     }
