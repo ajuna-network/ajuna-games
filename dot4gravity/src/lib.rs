@@ -114,7 +114,7 @@ impl Coordinates {
 }
 
 /// Sides of the board from which a player can drop a stone.
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Clone, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Side {
     North,
     East,
@@ -230,6 +230,23 @@ pub enum GameError {
 }
 
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Copy, Clone, Debug, Eq, PartialEq)]
+pub struct LastMove<Player> {
+    pub player: Player,
+    pub side: Side,
+    pub position: Position,
+}
+
+impl<Player> LastMove<Player> {
+    fn new(player: Player, side: Side, position: Position) -> Self {
+        Self {
+            player,
+            side,
+            position,
+        }
+    }
+}
+
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Copy, Clone, Debug, Eq, PartialEq)]
 pub struct GameState<Player> {
     /// Represents random seed.
     pub seed: Seed,
@@ -245,6 +262,8 @@ pub struct GameState<Player> {
     pub players: [Player; NUM_OF_PLAYERS],
     /// Number of bombs available for each player.
     pub bombs: [(Player, u8); NUM_OF_PLAYERS],
+    /// Represents the last move.
+    pub last_move: Option<LastMove<Player>>,
 }
 
 impl<Player: PartialEq> GameState<Player> {
@@ -364,6 +383,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                 (player1, NUM_OF_BOMBS_PER_PLAYER),
                 (player2, NUM_OF_BOMBS_PER_PLAYER),
             ],
+            last_move: Default::default(),
         }
     }
 
@@ -437,7 +457,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                         }
                         // The stone is placed at the end if it's empty.
                         Cell::Empty => {
-                            if position.is_opposite_cell(side.clone()) {
+                            if position.is_opposite_cell(side) {
                                 game_state
                                     .board
                                     .update_cell(position, Cell::Stone(player_index));
@@ -485,7 +505,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                         }
                         // The stone is placed at the end if it's empty.
                         Cell::Empty => {
-                            if position.is_opposite_cell(side.clone()) {
+                            if position.is_opposite_cell(side) {
                                 game_state
                                     .board
                                     .update_cell(position, Cell::Stone(player_index));
@@ -536,7 +556,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                         }
                         // The stone is placed at the end if it's empty.
                         Cell::Empty => {
-                            if position.is_opposite_cell(side.clone()) {
+                            if position.is_opposite_cell(side) {
                                 game_state
                                     .board
                                     .update_cell(position, Cell::Stone(player_index));
@@ -588,7 +608,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
                         }
                         // The stone is placed at the end if it's empty.
                         Cell::Empty => {
-                            if position.is_opposite_cell(side.clone()) {
+                            if position.is_opposite_cell(side) {
                                 game_state
                                     .board
                                     .update_cell(position, Cell::Stone(player_index));
@@ -625,6 +645,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
             }
         }
 
+        game_state.last_move = Some(LastMove::new(player, side, position));
         game_state.next_player = (game_state.next_player + 1) % NUM_OF_PLAYERS as u8;
         game_state = Game::check_winner_player(game_state);
 
