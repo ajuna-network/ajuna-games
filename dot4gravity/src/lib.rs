@@ -255,9 +255,9 @@ pub struct GameState<Player> {
     /// Game mode.
     pub phase: GamePhase,
     /// When present,it contains the player that won.
-    pub winner: Option<PlayerIndex>,
+    pub winner: Option<Player>,
     /// Next player turn.
-    pub next_player: PlayerIndex,
+    pub next_player: Player,
     /// Players:
     pub players: [Player; NUM_OF_PLAYERS],
     /// Number of bombs available for each player.
@@ -266,7 +266,7 @@ pub struct GameState<Player> {
     pub last_move: Option<LastMove<Player>>,
 }
 
-impl<Player: PartialEq> GameState<Player> {
+impl<Player: PartialEq + Clone> GameState<Player> {
     fn is_all_bomb_dropped(&self) -> bool {
         self.bombs.iter().all(|(_, bombs)| *bombs == 0)
     }
@@ -298,7 +298,7 @@ impl<Player: PartialEq> GameState<Player> {
         }
     }
     pub fn is_player_turn(&self, player: &Player) -> bool {
-        self.players[self.next_player as usize] == *player
+        self.next_player == *player
     }
     fn player_index(&self, player: &Player) -> PlayerIndex {
         let player_index = self
@@ -308,12 +308,21 @@ impl<Player: PartialEq> GameState<Player> {
             .expect("game to always start with 2 players") as u8;
         player_index
     }
+
+    fn next_player(&self) -> &Player {
+        let current_player_index = self
+            .players
+            .iter()
+            .position(|player| *player == self.next_player)
+            .expect("next player to be a subset of players");
+        &self.players[(current_player_index + 1) % NUM_OF_PLAYERS]
+    }
 }
 
 #[derive(Encode, Decode, TypeInfo)]
 pub struct Game<Player>(PhantomData<Player>);
 
-impl<Player: PartialEq> Game<Player> {
+impl<Player: PartialEq + Clone> Game<Player> {
     fn can_drop_bomb(
         game_state: &GameState<Player>,
         position: &Coordinates,
@@ -377,7 +386,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
             board,
             phase: Default::default(),
             winner: Default::default(),
-            next_player: Default::default(),
+            next_player: player1.clone(),
             players: [player1.clone(), player2.clone()],
             bombs: [
                 (player1, NUM_OF_BOMBS_PER_PLAYER),
@@ -646,7 +655,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
         }
 
         game_state.last_move = Some(LastMove::new(player, side, position));
-        game_state.next_player = (game_state.next_player + 1) % NUM_OF_PLAYERS as u8;
+        game_state.next_player = game_state.next_player().clone();
         game_state = Game::check_winner_player(game_state);
 
         Ok(game_state)
@@ -667,7 +676,8 @@ impl<Player: PartialEq + Clone> Game<Player> {
                         && cell == board.get_cell(&Coordinates::new(row + 2, col))
                         && cell == board.get_cell(&Coordinates::new(row + 3, col))
                     {
-                        game_state.winner = Some(player_index);
+                        let winner = game_state.players[player_index as usize].clone();
+                        game_state.winner = Some(winner);
                         break;
                     }
                 }
@@ -683,7 +693,8 @@ impl<Player: PartialEq + Clone> Game<Player> {
                         && cell == board.get_cell(&Coordinates::new(row, col + 2))
                         && cell == board.get_cell(&Coordinates::new(row, col + 3))
                     {
-                        game_state.winner = Some(player_index);
+                        let winner = game_state.players[player_index as usize].clone();
+                        game_state.winner = Some(winner);
                         break;
                     }
                 }
@@ -699,7 +710,8 @@ impl<Player: PartialEq + Clone> Game<Player> {
                         && cell == board.get_cell(&Coordinates::new(row - 2, col + 2))
                         && cell == board.get_cell(&Coordinates::new(row - 3, col + 3))
                     {
-                        game_state.winner = Some(player_index);
+                        let winner = game_state.players[player_index as usize].clone();
+                        game_state.winner = Some(winner);
                         break;
                     }
                 }
@@ -715,7 +727,8 @@ impl<Player: PartialEq + Clone> Game<Player> {
                         && cell == board.get_cell(&Coordinates::new(row + 2, col + 2))
                         && cell == board.get_cell(&Coordinates::new(row + 3, col + 3))
                     {
-                        game_state.winner = Some(player_index);
+                        let winner = game_state.players[player_index as usize].clone();
+                        game_state.winner = Some(winner);
                         break;
                     }
                 }

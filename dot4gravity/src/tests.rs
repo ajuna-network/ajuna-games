@@ -70,7 +70,7 @@ fn should_create_new_game() {
         "The game should start in bomb phase"
     );
     assert_eq!(game_state.winner, None, "No player should have won yet");
-    assert_eq!(game_state.next_player, game_state.player_index(&ALICE));
+    assert_eq!(game_state.next_player, ALICE);
     assert_eq!(game_state.bombs.len(), NUM_OF_PLAYERS);
     assert_eq!(
         game_state.get_player_bombs(&ALICE),
@@ -707,7 +707,7 @@ fn a_player_wins_when_has_a_four_stone_vertical_row() {
     ];
 
     state = Game::check_winner_player(state);
-    assert_eq!(state.winner, Some(alice_index));
+    assert_eq!(state.winner, Some(ALICE));
 }
 
 #[test]
@@ -730,7 +730,7 @@ fn a_player_wins_when_has_a_four_stone_horizontal_row() {
     ];
 
     state = Game::check_winner_player(state);
-    assert_eq!(state.winner, Some(alice_index));
+    assert_eq!(state.winner, Some(ALICE));
 }
 
 #[test]
@@ -753,7 +753,7 @@ fn a_player_wins_when_has_a_four_stone_ascending_diagonal_row() {
     ];
 
     state = Game::check_winner_player(state);
-    assert_eq!(state.winner, Some(alice_index));
+    assert_eq!(state.winner, Some(ALICE));
 }
 
 #[test]
@@ -776,7 +776,7 @@ fn a_player_wins_when_has_a_four_stone_descending_diagonal_row() {
     ];
 
     state = Game::check_winner_player(state);
-    assert_eq!(state.winner, Some(alice_index));
+    assert_eq!(state.winner, Some(ALICE));
 }
 
 #[test]
@@ -930,5 +930,5 @@ fn should_play_a_game() {
     state = Game::drop_stone(state.clone(), ALICE, Side::South, 8).unwrap();
 
     assert!(state.winner.is_some());
-    assert_eq!(state.winner.unwrap(), state.player_index(&ALICE));
+    assert_eq!(state.winner.unwrap(), ALICE);
 }
