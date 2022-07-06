@@ -202,7 +202,7 @@ fn a_cell_can_hold_one_or_more_bombs_from_different_players() {
         Cell::Bomb([Some(alice_index), None])
     );
 
-    let drop_bomb_result = Game::drop_bomb(game_state, TEST_COORDINATES.clone(), BOB);
+    let drop_bomb_result = Game::drop_bomb(game_state, TEST_COORDINATES, BOB);
     assert!(drop_bomb_result.is_ok());
     game_state = drop_bomb_result.unwrap();
 
@@ -222,11 +222,11 @@ fn a_cell_cannot_hold_more_than_allowed_number_of_bombs() {
     let bombed_cell = Cell::Bomb([Some(bob_index), Some(alice_index)]);
     game_state.board.update_cell(TEST_COORDINATES, bombed_cell);
     assert_eq!(
-        Game::drop_bomb(game_state, TEST_COORDINATES.clone(), ALICE),
+        Game::drop_bomb(game_state, TEST_COORDINATES, ALICE),
         Err(GameError::InvalidBombPosition)
     );
     assert_eq!(
-        Game::drop_bomb(game_state, TEST_COORDINATES.clone(), BOB),
+        Game::drop_bomb(game_state, TEST_COORDINATES, BOB),
         Err(GameError::InvalidBombPosition)
     );
 }
@@ -308,7 +308,7 @@ fn player_turn_changes_after_dropping_stone() {
     assert!(drop_stone_result.is_ok());
     let state = drop_stone_result.unwrap();
 
-    let drop_stone_result = Game::drop_stone(state.clone(), CHARLIE, Side::North, 0);
+    let drop_stone_result = Game::drop_stone(state, CHARLIE, Side::North, 0);
     assert_eq!(drop_stone_result, Err(GameError::NotPlayerTurn));
 
     let drop_stone_result = Game::drop_stone(state, BOB, Side::North, 0);
@@ -626,7 +626,7 @@ fn a_stone_should_explode_a_bomb_when_passing_through() {
     ];
     state.phase = GamePhase::Play;
 
-    let dropping_stone_result = Game::drop_stone(state.clone(), ALICE, Side::North, 5);
+    let dropping_stone_result = Game::drop_stone(state, ALICE, Side::North, 5);
     assert!(dropping_stone_result.is_ok());
     state = dropping_stone_result.unwrap();
 
@@ -654,7 +654,7 @@ fn a_stone_should_explode_a_bomb_when_passing_through() {
         Cell::Bomb([Some(alice_index), Some(bob_index)])
     );
 
-    let dropping_stone_result = Game::drop_stone(state.clone(), BOB, Side::North, 8);
+    let dropping_stone_result = Game::drop_stone(state, BOB, Side::North, 8);
     assert!(dropping_stone_result.is_ok());
     state = dropping_stone_result.unwrap();
     assert_eq!(
@@ -662,7 +662,7 @@ fn a_stone_should_explode_a_bomb_when_passing_through() {
         Cell::Empty
     );
 
-    let dropping_stone_result = Game::drop_stone(state.clone(), ALICE, Side::East, 7);
+    let dropping_stone_result = Game::drop_stone(state, ALICE, Side::East, 7);
     assert!(dropping_stone_result.is_ok());
     state = dropping_stone_result.unwrap();
     assert_eq!(
@@ -670,7 +670,7 @@ fn a_stone_should_explode_a_bomb_when_passing_through() {
         Cell::Empty
     );
 
-    let dropping_stone_result = Game::drop_stone(state.clone(), BOB, Side::South, 4);
+    let dropping_stone_result = Game::drop_stone(state, BOB, Side::South, 4);
     assert!(dropping_stone_result.is_ok());
     state = dropping_stone_result.unwrap();
     assert_eq!(
@@ -678,7 +678,7 @@ fn a_stone_should_explode_a_bomb_when_passing_through() {
         Cell::Empty
     );
 
-    let dropping_stone_result = Game::drop_stone(state.clone(), ALICE, Side::South, 4);
+    let dropping_stone_result = Game::drop_stone(state, ALICE, Side::South, 4);
     assert!(dropping_stone_result.is_ok());
     state = dropping_stone_result.unwrap();
     assert_eq!(
@@ -832,7 +832,7 @@ fn should_play_a_game() {
         player1_num_bombs - 1
     );
 
-    let drop_bomb_result = Game::drop_bomb(state.clone(), Coordinates { row: 0, col: 0 }, ALICE);
+    let drop_bomb_result = Game::drop_bomb(state, Coordinates { row: 0, col: 0 }, ALICE);
     assert!(
         drop_bomb_result.is_err(),
         "Player cannot drop two bombs in the same position"
@@ -858,7 +858,7 @@ fn should_play_a_game() {
         player1_num_bombs - 3
     );
 
-    let drop_bomb_result = Game::drop_bomb(state.clone(), Coordinates { row: 6, col: 8 }, ALICE);
+    let drop_bomb_result = Game::drop_bomb(state, Coordinates { row: 6, col: 8 }, ALICE);
     assert!(drop_bomb_result.is_err());
     assert_eq!(
         drop_bomb_result.unwrap_err(),
@@ -892,11 +892,11 @@ fn should_play_a_game() {
         "The game should be in play phase after all bombs have been deployed"
     );
 
-    let drop_stone_result = Game::drop_stone(state.clone(), BOB, Side::North, 0);
+    let drop_stone_result = Game::drop_stone(state, BOB, Side::North, 0);
     assert!(drop_stone_result.is_err());
     assert_eq!(drop_stone_result.unwrap_err(), GameError::NotPlayerTurn);
 
-    let drop_stone_result = Game::drop_stone(state.clone(), ALICE, Side::North, 0);
+    let drop_stone_result = Game::drop_stone(state, ALICE, Side::North, 0);
     assert!(drop_stone_result.is_ok());
     let mut state = drop_stone_result.unwrap();
     assert_eq!(
@@ -904,14 +904,14 @@ fn should_play_a_game() {
         Cell::Empty
     );
 
-    state = Game::drop_stone(state.clone(), BOB, Side::North, 2).unwrap();
-    state = Game::drop_stone(state.clone(), ALICE, Side::South, 8).unwrap();
-    state = Game::drop_stone(state.clone(), BOB, Side::North, 2).unwrap();
-    state = Game::drop_stone(state.clone(), ALICE, Side::South, 8).unwrap();
-    state = Game::drop_stone(state.clone(), BOB, Side::North, 2).unwrap();
+    state = Game::drop_stone(state, BOB, Side::North, 2).unwrap();
+    state = Game::drop_stone(state, ALICE, Side::South, 8).unwrap();
+    state = Game::drop_stone(state, BOB, Side::North, 2).unwrap();
+    state = Game::drop_stone(state, ALICE, Side::South, 8).unwrap();
+    state = Game::drop_stone(state, BOB, Side::North, 2).unwrap();
 
     // player 1 explodes bomb on 9,3 and player 2 loses stones on 9,2 and 8,2
-    state = Game::drop_stone(state.clone(), ALICE, Side::North, 3).unwrap();
+    state = Game::drop_stone(state, ALICE, Side::North, 3).unwrap();
     assert_eq!(
         state.board.get_cell(&Coordinates { row: 9, col: 2 }),
         Cell::Empty
@@ -921,13 +921,13 @@ fn should_play_a_game() {
         Cell::Empty
     );
 
-    state = Game::drop_stone(state.clone(), BOB, Side::North, 2).unwrap();
-    state = Game::drop_stone(state.clone(), ALICE, Side::South, 8).unwrap();
-    state = Game::drop_stone(state.clone(), BOB, Side::North, 2).unwrap();
+    state = Game::drop_stone(state, BOB, Side::North, 2).unwrap();
+    state = Game::drop_stone(state, ALICE, Side::South, 8).unwrap();
+    state = Game::drop_stone(state, BOB, Side::North, 2).unwrap();
 
     // No player has won yet.
     assert!(state.winner.is_none());
-    state = Game::drop_stone(state.clone(), ALICE, Side::South, 8).unwrap();
+    state = Game::drop_stone(state, ALICE, Side::South, 8).unwrap();
 
     assert!(state.winner.is_some());
     assert_eq!(state.winner.unwrap(), ALICE);
