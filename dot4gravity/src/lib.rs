@@ -227,6 +227,8 @@ pub enum GameError {
     NotPlayerTurn,
     /// The cell has no previous position. It is an edge cell.
     NoPreviousPosition,
+    /// Tried playing when game has finished.
+    GameAlreadyFinished,
 }
 
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Copy, Clone, Debug, Eq, PartialEq)]
@@ -331,6 +333,9 @@ impl<Player: PartialEq + Clone> Game<Player> {
         if game_state.phase != GamePhase::Bomb {
             return Err(GameError::DroppedBombOutsideBombPhase);
         }
+        if game_state.winner.is_some() {
+            return Err(GameError::GameAlreadyFinished);
+        }
         if game_state.is_all_player_bomb_dropped(player) {
             return Err(GameError::NoMoreBombsAvailable);
         }
@@ -348,6 +353,9 @@ impl<Player: PartialEq + Clone> Game<Player> {
     ) -> Result<(), GameError> {
         if game_state.phase != GamePhase::Play {
             return Err(GameError::DroppedStoneOutsidePlayPhase);
+        }
+        if game_state.winner.is_some() {
+            return Err(GameError::GameAlreadyFinished);
         }
         if !game_state.is_player_turn(player) {
             return Err(GameError::NotPlayerTurn);
