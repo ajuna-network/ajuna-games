@@ -156,6 +156,16 @@ fn a_player_cannot_drop_bomb_if_already_dropped_all() {
 }
 
 #[test]
+fn a_player_cannot_drop_bomb_if_game_already_finished() {
+    let mut game_state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
+    game_state.winner = Some(ALICE);
+    assert_eq!(
+        Game::drop_bomb(game_state, TEST_COORDINATES, BOB),
+        Err(GameError::GameAlreadyFinished),
+    )
+}
+
+#[test]
 fn dropping_bomb_should_not_update_last_move() {
     let mut game_state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     game_state.board.update_cell(TEST_COORDINATES, Cell::Empty);
@@ -295,6 +305,17 @@ fn a_player_cannot_drop_a_stone_out_of_turn() {
     state.phase = GamePhase::Play;
     let drop_stone_result = Game::drop_stone(state, BOB, Side::North, 0);
     assert_eq!(drop_stone_result, Err(GameError::NotPlayerTurn));
+}
+
+#[test]
+fn a_player_cannot_drop_stone_if_game_already_finished() {
+    let mut game_state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
+    game_state.phase = GamePhase::Play;
+    game_state.winner = Some(BOB);
+    assert_eq!(
+        Game::drop_stone(game_state, ALICE, Side::East, 1),
+        Err(GameError::GameAlreadyFinished),
+    )
 }
 
 #[test]
