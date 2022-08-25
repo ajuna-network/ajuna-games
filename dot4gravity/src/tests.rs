@@ -709,20 +709,20 @@ fn a_stone_should_explode_a_bomb_when_passing_through() {
 }
 
 #[test]
-fn a_player_wins_when_has_a_four_stone_vertical_row() {
+fn a_player_wins_when_has_stones_in_three_squares() {
     let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     let alice_index = state.player_index(&ALICE);
     let o = Cell::Empty;
     let s = Cell::Stone(alice_index);
     state.board.cells = [
         [o, o, o, o, o, o, o, o, o, o],
+        [o, o, s, s, o, o, o, o, o, o],
+        [o, o, s, s, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
-        [o, o, o, o, o, o, o, o, o, o],
-        [o, o, o, o, o, o, o, o, o, o],
-        [o, o, o, o, o, s, o, o, o, o],
-        [o, o, o, o, o, s, o, o, o, o],
-        [o, o, o, o, o, s, o, o, o, o],
-        [o, o, o, o, o, s, o, o, o, o],
+        [o, o, o, o, o, s, s, o, o, o],
+        [o, o, o, o, o, s, s, o, o, o],
+        [o, o, o, s, s, o, o, o, o, o],
+        [o, o, o, s, s, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
     ];
@@ -732,18 +732,18 @@ fn a_player_wins_when_has_a_four_stone_vertical_row() {
 }
 
 #[test]
-fn a_player_wins_when_has_a_four_stone_horizontal_row() {
-    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
-    let alice_index = state.player_index(&ALICE);
+fn a_player_wins_when_has_stones_in_three_squares_with_overlap() {
+    let mut state = Game::new_game(CHARLIE, BOB, Some(INITIAL_SEED));
+    let winner_index = state.player_index(&BOB);
     let o = Cell::Empty;
-    let s = Cell::Stone(alice_index);
+    let w = Cell::Stone(winner_index);
     state.board.cells = [
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
-        [o, o, o, o, o, o, o, o, o, o],
-        [o, s, s, s, s, o, o, o, o, o],
-        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, w, w, o, o, o, o],
+        [o, o, o, w, w, w, o, o, o, o],
+        [o, o, o, w, w, w, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
         [o, o, o, o, o, o, o, o, o, o],
@@ -751,57 +751,11 @@ fn a_player_wins_when_has_a_four_stone_horizontal_row() {
     ];
 
     state = Game::check_winner_player(state);
-    assert_eq!(state.winner, Some(ALICE));
+    assert_eq!(state.winner, Some(BOB));
 }
 
 #[test]
-fn a_player_wins_when_has_a_four_stone_ascending_diagonal_row() {
-    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
-    let alice_index = state.player_index(&ALICE);
-    let o = Cell::Empty;
-    let s = Cell::Stone(alice_index);
-    state.board.cells = [
-        [o, o, o, o, o, o, o, o, o, o],
-        [o, o, o, o, o, o, o, o, o, o],
-        [o, o, o, o, o, o, o, o, o, o],
-        [o, o, o, o, o, o, o, o, o, o],
-        [o, o, o, o, s, o, o, o, o, o],
-        [o, o, o, s, o, o, o, o, o, o],
-        [o, o, s, o, o, o, o, o, o, o],
-        [o, s, o, o, o, o, o, o, o, o],
-        [o, o, o, o, o, o, o, o, o, o],
-        [o, o, o, o, o, o, o, o, o, o],
-    ];
-
-    state = Game::check_winner_player(state);
-    assert_eq!(state.winner, Some(ALICE));
-}
-
-#[test]
-fn a_player_wins_when_has_a_four_stone_descending_diagonal_row() {
-    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
-    let alice_index = state.player_index(&ALICE);
-    let o = Cell::Empty;
-    let s = Cell::Stone(alice_index);
-    state.board.cells = [
-        [o, o, o, o, o, o, o, o, o, o],
-        [o, o, o, o, o, o, o, o, o, o],
-        [o, o, o, o, o, o, o, o, o, o],
-        [o, o, o, o, o, o, o, o, o, o],
-        [o, o, o, o, s, o, o, o, o, o],
-        [o, o, o, o, o, s, o, o, o, o],
-        [o, o, o, o, o, o, s, o, o, o],
-        [o, o, o, o, o, o, o, s, o, o],
-        [o, o, o, o, o, o, o, o, o, o],
-        [o, o, o, o, o, o, o, o, o, o],
-    ];
-
-    state = Game::check_winner_player(state);
-    assert_eq!(state.winner, Some(ALICE));
-}
-
-#[test]
-fn no_player_wins_for_less_than_four_in_a_row_stones() {
+fn no_player_wins_if_stones_are_not_in_four_squares() {
     let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
     let o = Cell::Empty;
     let b = Cell::Block;
@@ -809,14 +763,14 @@ fn no_player_wins_for_less_than_four_in_a_row_stones() {
     let m = Cell::Stone(state.player_index(&BOB));
     state.board.cells = [
         [o, r, o, o, o, o, o, o, m, o],
-        [m, o, o, o, o, o, o, o, o, o],
+        [m, o, o, o, o, m, o, o, o, o],
         [m, o, r, r, m, m, m, o, o, o],
-        [b, o, o, o, o, o, o, o, o, o],
-        [m, o, o, o, r, o, o, o, o, o],
+        [b, o, o, o, o, m, m, o, o, o],
+        [m, m, o, o, r, o, o, o, o, o],
         [m, m, b, m, o, r, o, o, o, o],
         [o, o, o, o, b, o, m, o, o, o],
         [o, o, r, o, o, o, o, r, o, o],
-        [o, r, r, o, o, o, o, o, o, o],
+        [r, r, r, o, o, o, o, o, o, o],
         [r, r, r, o, o, o, o, o, o, o],
     ];
 
@@ -942,14 +896,54 @@ fn should_play_a_game() {
         Cell::Empty
     );
 
+    // alice plays first square of stones
     state = Game::drop_stone(state, BOB, Side::North, 2).unwrap();
     state = Game::drop_stone(state, ALICE, Side::South, 8).unwrap();
     state = Game::drop_stone(state, BOB, Side::North, 2).unwrap();
+    state = Game::drop_stone(state, ALICE, Side::South, 8).unwrap();
+    state = Game::drop_stone(state, BOB, Side::North, 2).unwrap();
+    state = Game::drop_stone(state, ALICE, Side::East, 1).unwrap();
+    state = Game::drop_stone(state, BOB, Side::North, 2).unwrap();
+    state = Game::drop_stone(state, ALICE, Side::East, 2).unwrap();
 
-    // No player has won yet.
+    // alice plays second square of stones
+    state = Game::drop_stone(state, BOB, Side::East, 8).unwrap();
+    state = Game::drop_stone(state, ALICE, Side::South, 9).unwrap();
+    state = Game::drop_stone(state, BOB, Side::East, 8).unwrap();
+    state = Game::drop_stone(state, ALICE, Side::South, 9).unwrap();
+
+    // alice plays third square of stones
+    state = Game::drop_stone(state, BOB, Side::East, 8).unwrap();
+    state = Game::drop_stone(state, ALICE, Side::North, 5).unwrap();
+    state = Game::drop_stone(state, BOB, Side::East, 8).unwrap();
+    state = Game::drop_stone(state, ALICE, Side::North, 5).unwrap();
+    state = Game::drop_stone(state, BOB, Side::East, 8).unwrap();
+    state = Game::drop_stone(state, ALICE, Side::North, 6).unwrap();
+    state = Game::drop_stone(state, BOB, Side::East, 8).unwrap();
+
     assert!(state.winner.is_none());
-    state = Game::drop_stone(state, ALICE, Side::South, 8).unwrap();
+    let x = Cell::Stone(state.player_index(&ALICE));
+    let y = Cell::Stone(state.player_index(&BOB));
+    let p = Cell::Bomb([Some(state.player_index(&ALICE)), None]);
+    let q = Cell::Bomb([Some(state.player_index(&BOB)), None]);
+    assert_eq!(
+        state.board.cells,
+        [
+            [o, o, o, o, o, x, o, o, b, o],
+            [b, o, o, o, o, x, x, o, x, x],
+            [b, o, o, o, b, b, b, o, x, x],
+            [b, o, y, o, o, o, o, o, x, x],
+            [b, o, y, o, o, o, o, o, x, o],
+            [b, o, y, o, o, o, o, o, o, o],
+            [o, o, y, o, o, o, b, o, o, o],
+            [o, o, y, o, o, o, o, p, o, o],
+            [y, y, y, y, y, y, o, o, o, o],
+            [q, o, o, o, o, o, o, o, o, o],
+        ]
+    );
 
+    // trigger winning condition and check winner
+    state = Game::drop_stone(state, ALICE, Side::North, 6).unwrap();
     assert!(state.winner.is_some());
     assert_eq!(state.winner.unwrap(), ALICE);
 }

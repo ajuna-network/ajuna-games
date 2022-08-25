@@ -456,7 +456,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
         mut game_state: GameState<Player>,
         player: Player,
         side: Side,
-        position: u8,
+        position: Position,
     ) -> Result<GameState<Player>, GameError> {
         Self::can_drop_stone(&game_state, &side, position, &player)?;
         let player_index = game_state.player_index(&player);
@@ -675,69 +675,22 @@ impl<Player: PartialEq + Clone> Game<Player> {
         }
 
         let board = &game_state.board;
-        // Check vertical
-        for row in 0..BOARD_HEIGHT - 3 {
-            for col in 0..BOARD_WIDTH {
-                let cell = board.get_cell(&Coordinates::new(row, col));
-                if let Cell::Stone(player_index) = cell {
-                    if cell == board.get_cell(&Coordinates::new(row + 1, col))
-                        && cell == board.get_cell(&Coordinates::new(row + 2, col))
-                        && cell == board.get_cell(&Coordinates::new(row + 3, col))
-                    {
-                        let winner = game_state.players[player_index as usize].clone();
-                        game_state.winner = Some(winner);
-                        break;
-                    }
-                }
-            }
-        }
+        let mut squares = [0; NUM_OF_PLAYERS];
 
-        // Check horizontal
-        for row in 0..BOARD_HEIGHT {
-            for col in 0..BOARD_WIDTH - 3 {
+        for row in 0..BOARD_HEIGHT - 1 {
+            for col in 0..BOARD_WIDTH - 1 {
                 let cell = board.get_cell(&Coordinates::new(row, col));
                 if let Cell::Stone(player_index) = cell {
                     if cell == board.get_cell(&Coordinates::new(row, col + 1))
-                        && cell == board.get_cell(&Coordinates::new(row, col + 2))
-                        && cell == board.get_cell(&Coordinates::new(row, col + 3))
+                        && cell == board.get_cell(&Coordinates::new(row + 1, col))
+                        && cell == board.get_cell(&Coordinates::new(row + 1, col + 1))
                     {
-                        let winner = game_state.players[player_index as usize].clone();
-                        game_state.winner = Some(winner);
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Check ascending diagonal
-        for row in 3..BOARD_HEIGHT {
-            for col in 0..BOARD_WIDTH - 3 {
-                let cell = board.get_cell(&Coordinates::new(row, col));
-                if let Cell::Stone(player_index) = cell {
-                    if cell == board.get_cell(&Coordinates::new(row - 1, col + 1))
-                        && cell == board.get_cell(&Coordinates::new(row - 2, col + 2))
-                        && cell == board.get_cell(&Coordinates::new(row - 3, col + 3))
-                    {
-                        let winner = game_state.players[player_index as usize].clone();
-                        game_state.winner = Some(winner);
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Check diagonal descending
-        for row in 0..BOARD_HEIGHT - 3 {
-            for col in 0..BOARD_WIDTH - 3 {
-                let cell = board.get_cell(&Coordinates::new(row, col));
-                if let Cell::Stone(player_index) = cell {
-                    if cell == board.get_cell(&Coordinates::new(row + 1, col + 1))
-                        && cell == board.get_cell(&Coordinates::new(row + 2, col + 2))
-                        && cell == board.get_cell(&Coordinates::new(row + 3, col + 3))
-                    {
-                        let winner = game_state.players[player_index as usize].clone();
-                        game_state.winner = Some(winner);
-                        break;
+                        squares[player_index as usize] += 1;
+                        if squares[player_index as usize] >= 3 {
+                            let winner = game_state.players[player_index as usize].clone();
+                            game_state.winner = Some(winner);
+                            break;
+                        }
                     }
                 }
             }
