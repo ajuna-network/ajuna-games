@@ -155,6 +155,19 @@ impl Board {
         position.is_inside_board() && self.get_cell(position).is_stone_droppable()
     }
 
+    #[allow(dead_code)]
+    /// If the given cell position is a stone, return owner player index
+    fn player_index_stone(&self, position: &Coordinates) -> Option<PlayerIndex> {
+        if !position.is_inside_board() {
+            return None;
+        }
+        if let Cell::Stone(p) = self.get_cell(position) {
+            Some(p)
+        } else {
+            None
+        }
+    }
+
     fn get_cell(&self, position: &Coordinates) -> Cell {
         let cell = &self.cells[position.row as usize][position.col as usize];
         *cell
@@ -168,7 +181,8 @@ impl Board {
         );
     }
 
-    fn explode_bomb(&mut self, bomb_position: Coordinates) {
+    /// Return coordinates affected by a potential explosion
+    fn explodable_coordinate(&self, position: &Coordinates) -> Vec<Coordinates> {
         let offsets: [(i8, i8); 9] = [
             (0, 0),
             (-1, -1),
@@ -185,15 +199,21 @@ impl Board {
             .iter()
             .map(|(row_offset, col_offset)| {
                 Coordinates::new(
-                    (row_offset + bomb_position.row as i8) as u8,
-                    (col_offset + bomb_position.col as i8) as u8,
+                    (row_offset + position.row as i8) as u8,
+                    (col_offset + position.col as i8) as u8,
                 )
             })
+            .collect()
+    }
+
+    fn explode_bomb(&mut self, bomb_position: Coordinates) {
+        self.explodable_coordinate(&bomb_position)
+            .into_iter()
             .for_each(|position| {
                 if self.is_explodable(&position) {
                     self.update_cell(position, Cell::Empty)
                 }
-            });
+            })
     }
 }
 
