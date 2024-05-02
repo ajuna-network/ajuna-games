@@ -28,6 +28,7 @@ impl Bound for Coordinates {
 }
 
 impl Bound for Position {
+    #[allow(clippy::redundant_comparisons)]
     fn is_inside_board(&self) -> bool {
         self < &BOARD_WIDTH && self < &BOARD_HEIGHT
     }
