@@ -6,10 +6,6 @@
 
 .DS_Store
 
-# The cache for docker container dependency
-.cargo/*
-!.cargo/config.toml
-
 # The cache for chain data in container
 .local
 

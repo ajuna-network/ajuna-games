@@ -17,8 +17,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::traits::Bound;
-use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
+use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::{prelude::vec::Vec, TypeInfo};
 
 #[cfg(test)]
@@ -41,7 +41,6 @@ type Position = u8;
 type Seed = u32;
 
 /// Represents a cell of the board.
-#[allow(private_in_public)]
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Clone, Copy, Debug, Eq, PartialEq)]
 enum Cell {
     Empty,
