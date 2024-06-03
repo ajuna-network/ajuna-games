@@ -33,18 +33,25 @@ const MODULUS: Seed = Seed::pow(2, 16);
 const BOARD_WIDTH: u8 = 10;
 const BOARD_HEIGHT: u8 = 10;
 const NUM_OF_PLAYERS: usize = 2;
-const NUM_OF_BOMBS_PER_PLAYER: u8 = 3;
+const NUM_OF_BOMBS_PER_PLAYER: usize = 3;
 const NUM_OF_BLOCKS: u8 = 10;
 
 type PlayerIndex = u8;
 type Position = u8;
 type Seed = u32;
 
+/// Represents the sate of a placed bomb.
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BombState {
+    NotPlaced,
+    Placed(CoordinatesHash, u64),
+    Detonated,
+}
+
 /// Represents a cell of the board.
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Clone, Copy, Debug, Eq, PartialEq)]
 enum Cell {
     Empty,
-    Bomb([Option<PlayerIndex>; NUM_OF_PLAYERS]),
     Block,
     Stone(PlayerIndex),
 }
@@ -58,7 +65,7 @@ impl Default for Cell {
 impl Cell {
     /// Tells if a cell is suitable for dropping a bomb.
     fn is_bomb_droppable(&self) -> bool {
-        matches!(self, Cell::Empty | Cell::Bomb(_))
+        matches!(self, Cell::Empty)
     }
 
     /// Tells if a cell must be cleared when it's affected by an explosion.
@@ -72,6 +79,8 @@ impl Cell {
     }
 }
 
+pub type CoordinatesHash = [u8; 8];
+
 /// Coordinates for a cell in the board.
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Coordinates {
@@ -82,6 +91,17 @@ pub struct Coordinates {
 impl Coordinates {
     pub const fn new(row: u8, col: u8) -> Self {
         Self { row, col }
+    }
+
+    pub fn generate_hash(&self, secret: u64) -> CoordinatesHash {
+        let mut bytes = Vec::new();
+        bytes.extend(&[self.row, self.col]);
+        bytes.extend(secret.to_ne_bytes());
+        sp_crypto_hashing::twox_64(&bytes)
+    }
+
+    pub fn compare_hash_with(&self, secret: u64, other_hash: CoordinatesHash) -> bool {
+        self.generate_hash(secret) == other_hash
     }
 
     fn random(seed: Seed) -> (Self, Seed) {
@@ -200,7 +220,7 @@ impl Board {
 pub enum GamePhase {
     /// Not turn based. The players place bombs during this phase.
     Bomb,
-    /// Turn based phase. Every player can trigger bombs, his own or opponents.
+    /// Turn based phase. Every player can either place stones or trigger previously placed bombs.
     Play,
 }
 
@@ -216,6 +236,8 @@ pub enum GameError {
     DroppedBombOutsideBombPhase,
     /// Tried to drop a stone outside play phase.
     DroppedStoneOutsidePlayPhase,
+    /// Tried to detonate a bomb outside play phase.
+    DetonatedBombOutsidePlayPhase,
     /// The player has no more bombs to drop.
     NoMoreBombsAvailable,
     /// Tried to drop a bomb in an invalid cell. The cell is already taken.
@@ -261,15 +283,17 @@ pub struct GameState<Player> {
     pub next_player: Player,
     /// Players:
     pub players: [Player; NUM_OF_PLAYERS],
-    /// Number of bombs available for each player.
-    pub bombs: [(Player, u8); NUM_OF_PLAYERS],
+    /// Bomb states for each player
+    pub bombs: [(Player, [BombState; NUM_OF_BOMBS_PER_PLAYER]); NUM_OF_PLAYERS],
     /// Represents the last move.
     pub last_move: Option<LastMove<Player>>,
 }
 
 impl<Player: PartialEq + Clone> GameState<Player> {
     fn is_all_bomb_dropped(&self) -> bool {
-        self.bombs.iter().all(|(_, bombs)| *bombs == 0)
+        self.bombs
+            .iter()
+            .all(|(_, state)| state.iter().all(|s| *s != BombState::NotPlaced))
     }
 
     fn change_game_phase(&mut self, phase: GamePhase) {
@@ -280,6 +304,19 @@ impl<Player: PartialEq + Clone> GameState<Player> {
         self.bombs.iter().any(|(p, _)| *p == *player)
     }
 
+    pub fn is_player_bomb_at(&self, player: &Player, position: &Coordinates) -> bool {
+        self.bombs
+            .iter()
+            .find(|(p, _)| *p == *player)
+            .map(|(_, bomb_states)| {
+                bomb_states.iter().any(|state| match state {
+                    BombState::Placed(hash, secret) => position.generate_hash(*secret) == *hash,
+                    _ => false,
+                })
+            })
+            .unwrap_or_default()
+    }
+
     pub fn is_all_player_bomb_dropped(&self, player: &Player) -> bool {
         matches!(self.get_player_bombs(player), Some(available_bombs) if available_bombs == 0)
     }
@@ -288,19 +325,18 @@ impl<Player: PartialEq + Clone> GameState<Player> {
         self.bombs
             .iter()
             .find(|(p, _)| *p == *player)
-            .map(|(_, available_bombs)| *available_bombs)
+            .map(|(_, available_bombs)| {
+                available_bombs
+                    .iter()
+                    .filter(|state| **state == BombState::NotPlaced)
+                    .count() as u8
+            })
     }
 
-    pub fn decrease_player_bombs(&mut self, player: &Player) {
-        for (p, bombs) in self.bombs.iter_mut() {
-            if *p == *player {
-                *bombs -= 1;
-            }
-        }
-    }
     pub fn is_player_turn(&self, player: &Player) -> bool {
         self.next_player == *player
     }
+
     fn player_index(&self, player: &Player) -> PlayerIndex {
         let player_index = self
             .players
@@ -326,8 +362,8 @@ pub struct Game<Player>(PhantomData<Player>);
 impl<Player: PartialEq + Clone> Game<Player> {
     fn can_drop_bomb(
         game_state: &GameState<Player>,
-        position: &Coordinates,
         player: &Player,
+        position: &Coordinates,
     ) -> Result<(), GameError> {
         if game_state.phase != GamePhase::Bomb {
             return Err(GameError::DroppedBombOutsideBombPhase);
@@ -335,12 +371,30 @@ impl<Player: PartialEq + Clone> Game<Player> {
         if game_state.winner.is_some() {
             return Err(GameError::GameAlreadyFinished);
         }
-        if game_state.is_all_player_bomb_dropped(player) {
-            return Err(GameError::NoMoreBombsAvailable);
-        }
         if !game_state.board.is_bomb_droppable(position) {
             return Err(GameError::InvalidBombPosition);
         }
+        if game_state.is_all_player_bomb_dropped(player) {
+            return Err(GameError::NoMoreBombsAvailable);
+        }
+        if game_state.is_player_bomb_at(player, position) {
+            return Err(GameError::InvalidBombPosition);
+        }
+
+        Ok(())
+    }
+
+    fn can_detonate_bomb(game_state: &GameState<Player>, player: &Player) -> Result<(), GameError> {
+        if game_state.phase != GamePhase::Play {
+            return Err(GameError::DetonatedBombOutsidePlayPhase);
+        }
+        if game_state.winner.is_some() {
+            return Err(GameError::GameAlreadyFinished);
+        }
+        if !game_state.is_player_turn(player) {
+            return Err(GameError::NotPlayerTurn);
+        }
+
         Ok(())
     }
 
@@ -365,6 +419,7 @@ impl<Player: PartialEq + Clone> Game<Player> {
         {
             return Err(GameError::InvalidStonePosition);
         }
+
         Ok(())
     }
 }
@@ -396,49 +451,11 @@ impl<Player: PartialEq + Clone> Game<Player> {
             next_player: player1.clone(),
             players: [player1.clone(), player2.clone()],
             bombs: [
-                (player1, NUM_OF_BOMBS_PER_PLAYER),
-                (player2, NUM_OF_BOMBS_PER_PLAYER),
+                (player1, [BombState::NotPlaced; NUM_OF_BOMBS_PER_PLAYER]),
+                (player2, [BombState::NotPlaced; NUM_OF_BOMBS_PER_PLAYER]),
             ],
             last_move: Default::default(),
         }
-    }
-
-    /// Drop a bomb. Called during bomb phase.
-    pub fn drop_bomb(
-        mut game_state: GameState<Player>,
-        position: Coordinates,
-        player: Player,
-    ) -> Result<GameState<Player>, GameError> {
-        Self::can_drop_bomb(&game_state, &position, &player)?;
-        let player_index = game_state.player_index(&player);
-        match game_state.board.get_cell(&position) {
-            Cell::Empty => {
-                game_state
-                    .board
-                    .update_cell(position, Cell::Bomb([Some(player_index), None]));
-                game_state.decrease_player_bombs(&player);
-                if game_state.is_all_bomb_dropped() {
-                    game_state.change_game_phase(GamePhase::Play);
-                }
-            }
-            Cell::Bomb([Some(other_player_index), None]) => {
-                if other_player_index != player_index {
-                    game_state.board.update_cell(
-                        position,
-                        Cell::Bomb([Some(other_player_index), Some(player_index)]),
-                    );
-                    game_state.decrease_player_bombs(&player);
-                    if game_state.is_all_bomb_dropped() {
-                        game_state.change_game_phase(GamePhase::Play);
-                    }
-                } else {
-                    return Err(GameError::InvalidBombPosition);
-                }
-            }
-            _ => return Err(GameError::InvalidBombPosition),
-        }
-
-        Ok(game_state)
     }
 
     /// Change game phase.
@@ -448,6 +465,68 @@ impl<Player: PartialEq + Clone> Game<Player> {
     ) -> GameState<Player> {
         game_state.change_game_phase(phase);
         game_state
+    }
+
+    /// Drop a bomb. Called during bomb phase.
+    pub fn drop_bomb(
+        mut game_state: GameState<Player>,
+        position: Coordinates,
+        player: Player,
+        player_secret: u64,
+    ) -> Result<GameState<Player>, GameError> {
+        Self::can_drop_bomb(&game_state, &player, &position)?;
+
+        let coordinate_hash = position.generate_hash(player_secret);
+        let player_index = game_state.player_index(&player);
+
+        for entry in game_state.bombs[player_index as usize].1.iter_mut() {
+            match entry {
+                BombState::NotPlaced => {
+                    *entry = BombState::Placed(coordinate_hash, player_secret);
+                    break;
+                }
+                _ => continue,
+            }
+        }
+
+        if game_state.is_all_bomb_dropped() {
+            game_state.change_game_phase(GamePhase::Play);
+        }
+
+        Ok(game_state)
+    }
+
+    pub fn detonate_bomb(
+        mut game_state: GameState<Player>,
+        player: Player,
+        position: Coordinates,
+        player_secret: u64,
+    ) -> Result<GameState<Player>, GameError> {
+        Self::can_detonate_bomb(&game_state, &player)?;
+        let player_index = game_state.player_index(&player);
+        let coordinate_hash = position.generate_hash(player_secret);
+
+        let mut bomb_detonated = false;
+
+        for entry in game_state.bombs[player_index as usize].1.iter_mut() {
+            match entry {
+                BombState::Placed(ref placement_hash, _) if coordinate_hash == *placement_hash => {
+                    game_state.board.explode_bomb(position);
+                    *entry = BombState::Detonated;
+                    bomb_detonated = true;
+                    break;
+                }
+                _ => continue,
+            }
+        }
+
+        if bomb_detonated {
+            game_state.next_player = game_state.next_player().clone();
+
+            Ok(game_state)
+        } else {
+            Err(GameError::InvalidBombPosition)
+        }
     }
 
     /// Drop stone. Called during play phase.
@@ -466,11 +545,6 @@ impl<Player: PartialEq + Clone> Game<Player> {
                 while row < BOARD_HEIGHT && !stop {
                     let position = Coordinates::new(row, position);
                     match game_state.board.get_cell(&position) {
-                        // A cell bomb must explode.
-                        Cell::Bomb([_, _]) => {
-                            game_state.board.explode_bomb(position);
-                            stop = true;
-                        }
                         // The stone is placed at the end if it's empty.
                         Cell::Empty => {
                             if position.is_opposite_cell(side) {
@@ -514,11 +588,6 @@ impl<Player: PartialEq + Clone> Game<Player> {
                 loop {
                     let position = Coordinates::new(position, col);
                     match game_state.board.get_cell(&position) {
-                        // A cell bomb must explode.
-                        Cell::Bomb([_, _]) => {
-                            game_state.board.explode_bomb(position);
-                            break;
-                        }
                         // The stone is placed at the end if it's empty.
                         Cell::Empty => {
                             if position.is_opposite_cell(side) {
@@ -565,11 +634,6 @@ impl<Player: PartialEq + Clone> Game<Player> {
                 loop {
                     let position = Coordinates::new(row, position);
                     match game_state.board.get_cell(&position) {
-                        // A cell bomb must explode.
-                        Cell::Bomb([_, _]) => {
-                            game_state.board.explode_bomb(position);
-                            break;
-                        }
                         // The stone is placed at the end if it's empty.
                         Cell::Empty => {
                             if position.is_opposite_cell(side) {
@@ -617,11 +681,6 @@ impl<Player: PartialEq + Clone> Game<Player> {
                 while col < BOARD_WIDTH && !stop {
                     let position = Coordinates::new(position, col);
                     match game_state.board.get_cell(&position) {
-                        // A cell bomb must explode.
-                        Cell::Bomb([_, _]) => {
-                            game_state.board.explode_bomb(position);
-                            stop = true;
-                        }
                         // The stone is placed at the end if it's empty.
                         Cell::Empty => {
                             if position.is_opposite_cell(side) {
