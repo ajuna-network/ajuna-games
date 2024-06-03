@@ -89,6 +89,9 @@ fn should_create_new_game() {
         "Player Bob should be in the game"
     );
     assert_eq!(game_state.last_move, None);
+
+    assert_eq!(game_state.get_player_score(&ALICE), Score::default());
+    assert_eq!(game_state.get_player_score(&BOB), Score::default());
 }
 
 #[test]
@@ -776,6 +779,190 @@ fn no_player_wins_if_stones_are_not_in_four_squares() {
 
     state = Game::check_winner_player(state);
     assert!(state.winner.is_none(), "No player should have won");
+}
+
+#[test]
+fn a_stone_dropped_should_increase_score() {
+    let o = Cell::Empty;
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
+
+    state.board.cells = [
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+    ];
+
+    state.phase = GamePhase::Play;
+
+    assert_eq!(state.get_player_score(&ALICE), Score::default());
+    assert_eq!(state.get_player_score(&BOB), Score::default());
+
+    let mut state = Game::drop_stone(state, ALICE, Side::West, 0).unwrap();
+    assert_eq!(
+        state.get_player_score(&ALICE),
+        Score::default() + NB_POINT_STONE
+    );
+    assert_eq!(state.get_player_score(&BOB), Score::default());
+
+    state = Game::drop_stone(state, BOB, Side::North, 0).unwrap();
+    assert_eq!(
+        state.get_player_score(&ALICE),
+        Score::default() + NB_POINT_STONE
+    );
+    assert_eq!(
+        state.get_player_score(&BOB),
+        Score::default() + NB_POINT_STONE
+    );
+}
+
+#[test]
+fn get_nb_ennemy_stones_destroy_by_player_bomb() {
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
+    let (alice_index, bob_index) = (state.player_index(&ALICE), state.player_index(&BOB));
+
+    let o = Cell::Empty;
+    let b = Cell::Block;
+    let a = Cell::Bomb([Some(alice_index), None]);
+    let s = Cell::Stone(bob_index);
+
+    state.board.cells = [
+        [o, o, o, o, o, o, o, o, o, o],
+        [s, o, s, o, o, o, o, o, o, o],
+        [o, a, s, o, o, o, o, o, o, o],
+        [b, b, b, b, o, o, o, o, o, o],
+        [b, o, o, o, o, o, o, o, o, o],
+        [b, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, b, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+    ];
+
+    state.phase = GamePhase::Play;
+
+    // State before the explosion
+    assert_eq!(state.board.get_cell(&Coordinates { row: 1, col: 0 }), s);
+    assert_eq!(state.board.get_cell(&Coordinates { row: 1, col: 1 }), o);
+    assert_eq!(state.board.get_cell(&Coordinates { row: 1, col: 2 }), s);
+    assert_eq!(state.board.get_cell(&Coordinates { row: 2, col: 0 }), o);
+    assert_eq!(state.board.get_cell(&Coordinates { row: 2, col: 1 }), a);
+    assert_eq!(state.board.get_cell(&Coordinates { row: 2, col: 2 }), s);
+
+    state = Game::drop_stone(state, ALICE, Side::North, 1).unwrap();
+
+    // State after the explosion
+    assert_eq!(state.board.get_cell(&Coordinates { row: 1, col: 0 }), o);
+    assert_eq!(state.board.get_cell(&Coordinates { row: 1, col: 1 }), o);
+    assert_eq!(state.board.get_cell(&Coordinates { row: 1, col: 2 }), o);
+    assert_eq!(state.board.get_cell(&Coordinates { row: 2, col: 0 }), o);
+    assert_eq!(state.board.get_cell(&Coordinates { row: 2, col: 1 }), o);
+    assert_eq!(state.board.get_cell(&Coordinates { row: 2, col: 2 }), o);
+
+    assert_eq!(state.get_player_score(&ALICE), 4);
+    assert_eq!(state.get_player_score(&BOB), 0);
+}
+
+#[test]
+fn destroy_enemy_stone_should_increase_player_score() {
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
+    let (alice_index, bob_index) = (state.player_index(&ALICE), state.player_index(&BOB));
+    let mut alice_score = Score::default();
+    let mut bob_score = Score::default();
+
+    let o = Cell::Empty;
+    let b = Cell::Block;
+
+    let m = Cell::Bomb([Some(alice_index), None]);
+    let n = Cell::Bomb([Some(bob_index), None]);
+
+    let y = Cell::Stone(alice_index);
+    let z = Cell::Stone(bob_index);
+
+    state.board.cells = [
+        [o, o, o, o, o, o, o, o, b, o],
+        [b, o, m, z, o, o, o, o, z, m],
+        [b, o, o, b, b, b, b, o, z, o],
+        [b, o, o, o, o, o, o, o, o, o],
+        [b, o, o, o, o, o, o, o, o, o],
+        [b, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, b, o, o, o],
+        [o, o, b, o, o, o, o, o, y, o],
+        [o, n, o, o, o, o, o, n, o, o],
+        [o, y, o, o, o, o, o, o, b, o],
+    ];
+
+    state.phase = GamePhase::Play;
+
+    // Alice drop a stone on (1, 9) and destroyed her bomb on (1, 9) which destroy Bob stones on (1, 8) and (2, 8)
+    state = Game::drop_stone(state, ALICE, Side::East, 1).unwrap();
+    alice_score += NB_POINT_STONE + 2 * NB_POINT_ENEMY_STONE_DESTROYED;
+
+    // Bob drop a stone (9, 7) and destroy his bomb on (8, 7) which destroy Alice stone on (7, 8)
+    state = Game::drop_stone(state, BOB, Side::South, 7).unwrap();
+    bob_score += NB_POINT_STONE + NB_POINT_ENEMY_STONE_DESTROYED;
+
+    // Alice drop a stone on (0, 2) and destroyed her bomb on (1, 2) which destroy Bob stone on (0, 3)
+    state = Game::drop_stone(state, ALICE, Side::North, 2).unwrap();
+    alice_score += NB_POINT_STONE + NB_POINT_ENEMY_STONE_DESTROYED;
+
+    // Bob drop a stone (8, 0) and destroy his bomb on (8, 1) which destroy Alice stone on (9, 1)
+    state = Game::drop_stone(state, BOB, Side::West, 8).unwrap();
+    bob_score += NB_POINT_STONE + NB_POINT_ENEMY_STONE_DESTROYED;
+
+    assert_eq!(state.get_player_score(&ALICE), alice_score);
+    assert_eq!(state.get_player_score(&BOB), bob_score);
+}
+
+#[test]
+fn destroy_its_own_stone_should_not_increase_player_score() {
+    let o = Cell::Empty;
+    let b = Cell::Block;
+
+    let mut state = Game::new_game(ALICE, BOB, Some(INITIAL_SEED));
+    state.board.cells = [
+        [o, o, o, o, o, o, o, o, b, o],
+        [b, o, o, o, o, o, o, o, o, o],
+        [b, o, o, b, b, b, b, o, o, o],
+        [b, o, o, o, o, o, o, o, o, o],
+        [b, o, o, o, o, o, o, o, o, o],
+        [b, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, b, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+        [o, o, o, o, o, o, o, o, o, o],
+    ];
+
+    for (coordinate, player) in [
+        (Coordinates { row: 1, col: 2 }, ALICE),
+        (Coordinates { row: 4, col: 4 }, ALICE),
+        (Coordinates { row: 2, col: 1 }, BOB),
+    ] {
+        let drop_bomb_result = Game::drop_bomb(state, coordinate, player);
+        assert!(drop_bomb_result.is_ok());
+    }
+
+    state.change_game_phase(GamePhase::Play);
+
+    for (index, side, player) in [
+        (3, Side::North, ALICE),
+        (7, Side::North, BOB),
+        (2, Side::North, ALICE),
+    ] {
+        state = Game::drop_stone(state, player, side, index).unwrap();
+    }
+
+    // Alice destroyed her own stone by hiting a bomb on (1, 2)
+    assert_eq!(
+        state.get_player_score(&ALICE),
+        Score::default() + NB_POINT_STONE * 2
+    );
 }
 
 #[test]
