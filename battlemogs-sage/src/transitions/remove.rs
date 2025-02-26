@@ -16,13 +16,12 @@
 
 use crate::{
 	asset,
-	error::TransitionErrorCode,
 	transitions::{BattleMogsTransitionConfig, BattleMogsTransitionOutput},
 	BattleMogsTransition,
 };
 
 use ajuna_primitives::sage_api::SageApi;
-use sage_api::TransitionError;
+use sage_api::{traits::TransitionOutput, TransitionError};
 
 use frame_support::pallet_prelude::*;
 use parity_scale_codec::Codec;
@@ -48,6 +47,8 @@ where
 		owner: &AccountId,
 		mogwai_id: &asset::BattleMogsId,
 	) -> Result<BattleMogsTransitionOutput<BlockNumber>, TransitionError> {
-		todo!()
+		let _ = Self::get_owned_mogwai(owner, mogwai_id)?;
+
+		Ok(sp_std::vec![TransitionOutput::Consumed(*mogwai_id)])
 	}
 }

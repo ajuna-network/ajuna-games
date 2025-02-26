@@ -14,8 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::error::*;
+
+use sage_api::{traits::GetId, TransitionError};
+
 use frame_support::pallet_prelude::*;
-use sage_api::traits::GetId;
 
 pub mod achievement_table;
 pub mod mogwai;
@@ -50,17 +53,21 @@ impl<BlockNumber> BattleMogsAsset<BlockNumber> {
 		matches!(self.variant, BattleMogsVariant::AchievementTable(_))
 	}
 
-	pub fn as_mogwai(&mut self) -> Option<&mut mogwai::Mogwai> {
+	pub fn as_mogwai(&mut self) -> Result<&mut mogwai::Mogwai, TransitionError> {
 		match &mut self.variant {
-			BattleMogsVariant::Mogwai(mogwai) => Some(mogwai),
-			BattleMogsVariant::AchievementTable(_) => None,
+			BattleMogsVariant::Mogwai(mogwai) => Ok(mogwai),
+			BattleMogsVariant::AchievementTable(_) =>
+				Err(TransitionError::Transition { code: ASSET_IS_NOT_MOGWAI }),
 		}
 	}
 
-	pub fn as_achievement(&mut self) -> Option<&mut achievement_table::AchievementTable> {
+	pub fn as_achievement(
+		&mut self,
+	) -> Result<&mut achievement_table::AchievementTable, TransitionError> {
 		match &mut self.variant {
-			BattleMogsVariant::AchievementTable(achievement_table) => Some(achievement_table),
-			BattleMogsVariant::Mogwai(_) => None,
+			BattleMogsVariant::AchievementTable(achievement_table) => Ok(achievement_table),
+			BattleMogsVariant::Mogwai(_) =>
+				Err(TransitionError::Transition { code: ASSET_IS_NOT_ACHIEVENT_TABLE }),
 		}
 	}
 }

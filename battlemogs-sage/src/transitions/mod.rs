@@ -14,16 +14,18 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{asset, BattleMogsTransition};
+use crate::{asset, error::*, BattleMogsTransition};
 
+use ajuna_payment_handler::NativeId;
 use ajuna_primitives::sage_api::SageApi;
+use sage_api::{traits::TransitionOutput, TransitionError};
 
 use frame_support::{
+	ensure,
 	pallet_prelude::{Decode, Encode, TypeInfo},
 	Parameter,
 };
 use parity_scale_codec::{Codec, MaxEncodedLen};
-use sage_api::traits::TransitionOutput;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, BlockNumber as BlockNumberT, Member},
@@ -94,4 +96,93 @@ where
 		HashOutput = H256,
 	>,
 {
+	pub(crate) fn new_asset_id(subject: &[u8], nonce: u64) -> asset::BattleMogsId {
+		Sage::random_hash(subject).to_low_u64_be().saturating_add(nonce)
+	}
+
+	pub(crate) fn ensure_not_max_mogwais(account: &AccountId) -> Result<(), TransitionError> {
+		let mogwai_count =
+			Sage::iter_assets_from(account).filter(|(_, asset)| asset.is_mogwai()).count();
+		let max_mogwais = Sage::get_transition_config().max_mogwais;
+		ensure!(
+			mogwai_count <= max_mogwais as usize,
+			TransitionError::Transition { code: MOGWAI_LIMIT_REACHED }
+		);
+
+		Ok(())
+	}
+
+	pub(crate) fn ensure_ownership(
+		owner: &AccountId,
+		mogwai_id: &asset::BattleMogsId,
+	) -> Result<asset::BattleMogsAsset<BlockNumber>, TransitionError> {
+		Sage::ensure_ownership(owner, mogwai_id).map_err(|_| TransitionError::AssetOwnership)
+	}
+
+	pub(crate) fn ensure_mogwai(
+		asset: &asset::BattleMogsAsset<BlockNumber>,
+	) -> Result<(), TransitionError> {
+		ensure!(asset.is_mogwai(), TransitionError::Transition { code: ASSET_IS_NOT_MOGWAI });
+		Ok(())
+	}
+
+	pub(crate) fn get_mogwai(
+		mogwai_id: &asset::BattleMogsId,
+	) -> Result<asset::BattleMogsAsset<BlockNumber>, TransitionError> {
+		let asset = Sage::get_asset(mogwai_id)
+			.map_err(|_| TransitionError::Transition { code: ASSET_NOT_FOUND })?;
+		Self::ensure_mogwai(&asset)?;
+		Ok(asset)
+	}
+
+	pub(crate) fn get_owned_mogwai(
+		owner: &AccountId,
+		mogwai_id: &asset::BattleMogsId,
+	) -> Result<asset::BattleMogsAsset<BlockNumber>, TransitionError> {
+		Self::ensure_ownership(owner, mogwai_id)?;
+		let asset = Sage::get_asset(mogwai_id)
+			.map_err(|_| TransitionError::Transition { code: ASSET_NOT_FOUND })?;
+		Self::ensure_mogwai(&asset)?;
+		Ok(asset)
+	}
+
+	pub(crate) fn get_payment_id(
+		payment_asset: Option<Sage::FungiblesAssetId>,
+	) -> Sage::FungiblesAssetId {
+		if let Some(payment) = payment_asset {
+			payment
+		} else {
+			Sage::FungiblesAssetId::get_native_id()
+		}
+	}
+
+	pub(crate) fn inspect_asset_funds(
+		asset_id: &asset::BattleMogsId,
+		payment_asset: Option<Sage::FungiblesAssetId>,
+	) -> Balance {
+		let fund_id = Self::get_payment_id(payment_asset);
+		Sage::inspect_asset_funds(asset_id, &fund_id)
+	}
+
+	pub(crate) fn deposit_funds_to_asset(
+		asset_id: &asset::BattleMogsId,
+		from: &AccountId,
+		payment_asset: Option<Sage::FungiblesAssetId>,
+		amount: Balance,
+	) -> Result<(), TransitionError> {
+		let fund_id = Self::get_payment_id(payment_asset);
+		Sage::deposit_funds_to_asset(asset_id, from, fund_id, amount)
+			.map_err(|_| TransitionError::Transition { code: ASSET_COULD_NOT_RECEIVE_FUNDS })
+	}
+
+	pub(crate) fn withdraw_funds_from_asset(
+		asset_id: &asset::BattleMogsId,
+		to: &AccountId,
+		payment_asset: Option<Sage::FungiblesAssetId>,
+		amount: Balance,
+	) -> Result<(), TransitionError> {
+		let fund_id = Self::get_payment_id(payment_asset);
+		Sage::transfer_funds_from_asset(asset_id, to, fund_id, amount)
+			.map_err(|_| TransitionError::Transition { code: ASSET_COULD_NOT_WITHDRAW_FUNDS })
+	}
 }

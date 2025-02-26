@@ -16,13 +16,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use ajuna_primitives::sage_api::SageApi;
-use sage_api::{SageGameTransition, TransitionError};
-
 use crate::transitions::BattleMogsTransitionConfig;
+
+use ajuna_primitives::sage_api::SageApi;
+use sage_api::{traits::TransitionOutput, SageGameTransition, TransitionError};
+
 use frame_support::pallet_prelude::*;
 use parity_scale_codec::Codec;
-use sage_api::traits::TransitionOutput;
 use sp_core::H256;
 use sp_runtime::traits::{AtLeast32BitUnsigned, BlockNumber as BlockNumberT};
 use sp_std::marker::PhantomData;
@@ -75,20 +75,22 @@ where
 	fn do_transition(
 		transition_id: &Self::TransitionId,
 		account_id: &Self::AccountId,
-		_assets_ids: &[Self::AssetId],
+		_: &[Self::AssetId],
 		_: &Self::Extra,
-		_payment_asset: Option<Self::PaymentFungible>,
+		payment_asset: Option<Self::PaymentFungible>,
 	) -> Result<Vec<TransitionOutput<Self::AssetId, Self::Asset>>, TransitionError> {
 		match transition_id {
 			BattleMogsAction::Create => Self::create_mogwai(account_id),
 			BattleMogsAction::Remove(mogwai_id) => Self::remove_mogwai(account_id, mogwai_id),
 			BattleMogsAction::Hatch(mogwai_id) => Self::hatch_mogwai(account_id, mogwai_id),
-			BattleMogsAction::Sacrifice(mogwai_id) => Self::sacrifice_mogwai(account_id, mogwai_id),
+			BattleMogsAction::Sacrifice(mogwai_id) =>
+				Self::sacrifice_mogwai(account_id, mogwai_id, payment_asset),
 			BattleMogsAction::SacrificeInto(sacrificed_id, into_id) =>
-				Self::sacrifice_mogwai_into(account_id, sacrificed_id, into_id),
-			BattleMogsAction::Morph(mogwai_id) => Self::moprh_mogwai(account_id, mogwai_id),
+				Self::sacrifice_mogwai_into(account_id, sacrificed_id, into_id, payment_asset),
+			BattleMogsAction::Morph(mogwai_id) =>
+				Self::morph_mogwai(account_id, mogwai_id, payment_asset),
 			BattleMogsAction::Breed(mogwai_id_1, mogwai_id_2) =>
-				Self::breed_mogwais(account_id, mogwai_id_1, mogwai_id_2),
+				Self::breed_mogwais(account_id, mogwai_id_1, mogwai_id_2, payment_asset),
 		}
 	}
 }

@@ -20,7 +20,6 @@ use crate::{
 		mogwai::{Mogwai as MogwaiVariant, MogwaiGeneration, PhaseType, RarityType},
 		BattleMogsAsset, BattleMogsId, BattleMogsVariant,
 	},
-	error::TransitionErrorCode,
 	transitions::{BattleMogsTransitionConfig, BattleMogsTransitionOutput, BreedType},
 	BattleMogsTransition,
 };
@@ -31,7 +30,10 @@ use sage_api::{traits::TransitionOutput, TransitionError};
 use frame_support::pallet_prelude::*;
 use parity_scale_codec::Codec;
 use sp_core::H256;
-use sp_runtime::traits::{AtLeast32BitUnsigned, BlockNumber as BlockNumberT, Member};
+use sp_runtime::{
+	traits::{AtLeast32BitUnsigned, BlockNumber as BlockNumberT, Member},
+	SaturatedConversion,
+};
 
 impl<AccountId, BlockNumber, Balance, Sage> BattleMogsTransition<AccountId, BlockNumber, Sage>
 where
@@ -51,13 +53,11 @@ where
 	pub(crate) fn create_mogwai(
 		owner: &AccountId,
 	) -> Result<BattleMogsTransitionOutput<BlockNumber>, TransitionError> {
-		// ensure that we have enough space
-		let mogwai_count =
-			Sage::iter_assets_from(owner).filter(|(_, asset)| asset.is_mogwai()).count();
-		let max_mogwais = Sage::get_transition_config().max_mogwais;
-		ensure!(mogwai_count <= max_mogwais as usize, TransitionError::Transition { code: 1 });
+		Self::ensure_not_max_mogwais(owner)?;
 
-		let mogwai_id = Sage::random_hash(b"mogwai_id").to_low_u64_be();
+		let block_number = Sage::get_current_block_number();
+
+		let mogwai_id = Self::new_asset_id(b"mogwai_id", block_number.saturated_into());
 
 		let random_hash_1 = Sage::random_hash(b"create_mogwai");
 		let random_hash_2 = Sage::random_hash(b"extend_mogwai");
@@ -71,7 +71,6 @@ where
 		);
 		let rarity = RarityType::from(((max_rarity as u8) << 4) + rarity as u8);
 
-		let block_number = Sage::get_current_block_number();
 		let breed_type = BreedType::calculate_breed_type::<BlockNumber>(block_number);
 
 		let dx = unsafe { &*(&random_hash_1.as_ref()[0..32] as *const [u8] as *const [u8; 32]) };

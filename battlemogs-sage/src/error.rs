@@ -16,11 +16,22 @@
 
 use sage_api::TransitionError;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct TransitionErrorCode(u8);
+pub const ASSET_NOT_FOUND: u8 = 0;
+pub const MOGWAI_LIMIT_REACHED: u8 = 1;
+pub const ASSET_IS_NOT_MOGWAI: u8 = 2;
+pub const ASSET_IS_NOT_ACHIEVENT_TABLE: u8 = 3;
+pub const CANNOT_USE_SAME_ASSET_FOR_BREEDING: u8 = 4;
+pub const MOGWAI_STILL_IN_BRED_PHASE: u8 = 5;
+pub const MOGWAI_NOT_IN_BRED_PHASE: u8 = 6;
+pub const MOGWAI_HAS_INVALID_RARITY: u8 = 7;
 
-impl From<TransitionErrorCode> for TransitionError {
-	fn from(value: TransitionErrorCode) -> Self {
-		TransitionError::Transition { code: value.0 }
+pub const ASSET_COULD_NOT_RECEIVE_FUNDS: u8 = 100;
+pub const ASSET_COULD_NOT_WITHDRAW_FUNDS: u8 = 101;
+
+pub(crate) struct BattleMogsError;
+
+impl BattleMogsError {
+	pub(crate) fn from(code: u8) -> TransitionError {
+		TransitionError::Transition { code }
 	}
 }

@@ -15,14 +15,17 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
+	algorithm::Breeding,
 	asset,
-	error::TransitionErrorCode,
-	transitions::{BattleMogsTransitionConfig, BattleMogsTransitionOutput},
+	asset::mogwai::PhaseType,
+	config::Pricing,
+	error::*,
+	transitions::{BattleMogsTransitionConfig, BattleMogsTransitionOutput, BreedType},
 	BattleMogsTransition,
 };
 
 use ajuna_primitives::sage_api::SageApi;
-use sage_api::TransitionError;
+use sage_api::{traits::TransitionOutput, TransitionError};
 
 use frame_support::pallet_prelude::*;
 use parity_scale_codec::Codec;
@@ -44,10 +47,28 @@ where
 		HashOutput = H256,
 	>,
 {
-	pub(crate) fn moprh_mogwai(
+	pub(crate) fn morph_mogwai(
 		owner: &AccountId,
 		mogwai_id: &asset::BattleMogsId,
+		payment_asset: Option<Sage::FungiblesAssetId>,
 	) -> Result<BattleMogsTransitionOutput<BlockNumber>, TransitionError> {
-		todo!()
+		let mut asset = Self::get_owned_mogwai(owner, mogwai_id)?;
+		let mogwai = asset.as_mogwai()?;
+		ensure!(mogwai.phase != PhaseType::Bred, BattleMogsError::from(MOGWAI_STILL_IN_BRED_PHASE));
+
+		let pairing_price = Pricing::<Balance>::pairing(mogwai.rarity, mogwai.rarity);
+		Self::deposit_funds_to_asset(mogwai_id, owner, payment_asset, pairing_price)?;
+
+		let block_number = Sage::get_current_block_number();
+		let breed_type = BreedType::calculate_breed_type(block_number);
+		let dx = unsafe { &*(&mogwai.dna[0][0..16] as *const [u8] as *const [u8; 16]) };
+		let dy = unsafe { &*(&mogwai.dna[0][16..32] as *const [u8] as *const [u8; 16]) };
+
+		mogwai.dna[0] = Breeding::morph(breed_type, dx, dy);
+
+		// TODO: Do something with the results
+		//let _ = Self::update_achievement_for(&sender, AccountAchievement::Morpheus, 1);
+
+		Ok(sp_std::vec![TransitionOutput::Mutated(*mogwai_id, asset)])
 	}
 }

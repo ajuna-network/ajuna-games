@@ -16,13 +16,15 @@
 
 use crate::{
 	asset,
-	error::TransitionErrorCode,
+	asset::mogwai::PhaseType,
+	config::Pricing,
+	error::*,
 	transitions::{BattleMogsTransitionConfig, BattleMogsTransitionOutput},
 	BattleMogsTransition,
 };
 
 use ajuna_primitives::sage_api::SageApi;
-use sage_api::TransitionError;
+use sage_api::{traits::TransitionOutput, TransitionError};
 
 use frame_support::pallet_prelude::*;
 use parity_scale_codec::Codec;
@@ -47,7 +49,24 @@ where
 	pub(crate) fn sacrifice_mogwai(
 		owner: &AccountId,
 		mogwai_id: &asset::BattleMogsId,
+		payment_asset: Option<Sage::FungiblesAssetId>,
 	) -> Result<BattleMogsTransitionOutput<BlockNumber>, TransitionError> {
-		todo!()
+		let mut asset = Self::get_owned_mogwai(owner, mogwai_id)?;
+		let mogwai = asset.as_mogwai()?;
+
+		ensure!(mogwai.phase != PhaseType::Bred, BattleMogsError::from(MOGWAI_STILL_IN_BRED_PHASE));
+
+		let intrinsic_to_deposit = {
+			let mogwai_funds = Self::inspect_asset_funds(mogwai_id, payment_asset.clone());
+
+			let intrinsic_return = Pricing::<Balance>::intrinsic_return(mogwai.phase);
+			mogwai_funds.checked_div(&intrinsic_return).unwrap_or(Balance::zero())
+		};
+		Self::withdraw_funds_from_asset(mogwai_id, owner, payment_asset, intrinsic_to_deposit)?;
+
+		// TODO: Do something with the results
+		//let _ = Self::update_achievement_for(&sender, AccountAchievement::Sacrificer, 1);
+
+		Ok(sp_std::vec![TransitionOutput::Consumed(*mogwai_id)])
 	}
 }
