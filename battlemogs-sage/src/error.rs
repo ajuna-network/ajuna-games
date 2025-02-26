@@ -14,22 +14,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Coordinates, Position, BOARD_HEIGHT, BOARD_WIDTH};
+use sage_api::TransitionError;
 
-pub(crate) trait Bound {
-	/// Tells if something is inside the board.
-	fn is_inside_board(&self) -> bool;
-}
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct TransitionErrorCode(u8);
 
-impl Bound for Coordinates {
-	fn is_inside_board(&self) -> bool {
-		self.row < BOARD_WIDTH && self.col < BOARD_HEIGHT
-	}
-}
-
-impl Bound for Position {
-	#[allow(clippy::redundant_comparisons)]
-	fn is_inside_board(&self) -> bool {
-		self < &BOARD_WIDTH && self < &BOARD_HEIGHT
+impl From<TransitionErrorCode> for TransitionError {
+	fn from(value: TransitionErrorCode) -> Self {
+		TransitionError::Transition { code: value.0 }
 	}
 }

@@ -1,5 +1,29 @@
+[workspace.package]
+authors    = [ "Ajuna Network <https://github.com/ajuna-network>" ]
+edition    = "2021"
+homepage   = "https://ajuna.io"
+repository = "https://github.com/ajuna-network/ajuna-games"
+
+[workspace.metadata.psvm]
+version = "polkadot-stable2409-3"
+
 [workspace]
 resolver = "2"
-members = [
+members = [ "battlemogs-sage",
     "dot4gravity",
 ]
+
+[workspace.dependencies]
+parity-scale-codec = { version = "3.0.0", default-features = false }
+scale-info         = { version = "2.1.1", default-features = false }
+
+frame-support      = { version = "38.2.0", default-features = false }
+sp-crypto-hashing  = { version = "0.1.0", default-features = false }
+
+sp-core            = { version = "34.0.0", default-features = false }
+sp-runtime         = { version = "39.0.5", default-features = false }
+sp-std             = { version = "14.0.0", default-features = false }
+
+ajuna-payment-handler = { git = "https://github.com/ajuna-network/ajuna-pallets.git", branch = "develop", default-features = false }
+ajuna-primitives      = { git = "https://github.com/ajuna-network/ajuna-pallets.git", branch = "develop", default-features = false }
+sage-api              = { git = "https://github.com/ajuna-network/ajuna-pallets.git", branch = "develop", default-features = false }
