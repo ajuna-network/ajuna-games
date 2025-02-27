@@ -67,7 +67,7 @@ impl<BlockNumber> BattleMogsAsset<BlockNumber> {
 		match &mut self.variant {
 			BattleMogsVariant::AchievementTable(achievement_table) => Ok(achievement_table),
 			BattleMogsVariant::Mogwai(_) =>
-				Err(TransitionError::Transition { code: ASSET_IS_NOT_ACHIEVENT_TABLE }),
+				Err(TransitionError::Transition { code: ASSET_IS_NOT_ACHIEVEMENT_TABLE }),
 		}
 	}
 }

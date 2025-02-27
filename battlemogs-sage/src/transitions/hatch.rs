@@ -16,8 +16,10 @@
 
 use crate::{
 	algorithm::Breeding,
-	asset,
-	asset::mogwai::{Mogwai, PhaseType, RarityType},
+	asset::{
+		mogwai::{Mogwai, PhaseType, RarityType},
+		BattleMogsAsset, BattleMogsId,
+	},
 	config::GameEventType,
 	error::*,
 	transitions::{BattleMogsTransitionConfig, BattleMogsTransitionOutput},
@@ -43,8 +45,8 @@ where
 	Balance: Member + Parameter + AtLeast32BitUnsigned + MaxEncodedLen,
 	Sage: SageApi<
 		AccountId = AccountId,
-		AssetId = asset::BattleMogsId,
-		Asset = asset::BattleMogsAsset<BlockNumber>,
+		AssetId = BattleMogsId,
+		Asset = BattleMogsAsset<BlockNumber>,
 		Balance = Balance,
 		BlockNumber = BlockNumber,
 		TransitionConfig = BattleMogsTransitionConfig,
@@ -53,9 +55,11 @@ where
 {
 	pub(crate) fn hatch_mogwai(
 		owner: &AccountId,
-		mogwai_id: &asset::BattleMogsId,
+		mogwai_id: &BattleMogsId,
+		table_id: &BattleMogsId,
 	) -> Result<BattleMogsTransitionOutput<BlockNumber>, TransitionError> {
 		let mut asset = Self::get_owned_mogwai(owner, mogwai_id)?;
+		let mut table_asset = Self::get_owned_achievement_table(owner, table_id)?;
 
 		let block_number = Sage::get_current_block_number();
 		let time_till_hatch = GameEventType::time_till(GameEventType::Hatch);
@@ -74,10 +78,13 @@ where
 		mogwai.rarity = rarity;
 		mogwai.dna = dna;
 
-		// TODO: Do something with the result
-		//let _ = Self::update_achievement_for(&sender, AccountAchievement::EggHatcher, 1);
+		let table = table_asset.as_achievement()?;
+		table.egg_hatcher = table.egg_hatcher.increase_by(1);
 
-		Ok(sp_std::vec![TransitionOutput::Mutated(*mogwai_id, asset)])
+		Ok(sp_std::vec![
+			TransitionOutput::Mutated(*mogwai_id, asset),
+			TransitionOutput::Mutated(*table_id, table_asset)
+		])
 	}
 
 	fn segment_and_bake(mogwai: &mut Mogwai, hash: &[u8; 32]) -> ([[u8; 32]; 2], RarityType) {

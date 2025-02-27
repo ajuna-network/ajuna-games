@@ -56,7 +56,6 @@ where
 		Self::ensure_not_max_mogwais(owner)?;
 
 		let block_number = Sage::get_current_block_number();
-
 		let mogwai_id = Self::new_asset_id(b"mogwai_id", block_number.saturated_into());
 
 		let random_hash_1 = Sage::random_hash(b"create_mogwai");

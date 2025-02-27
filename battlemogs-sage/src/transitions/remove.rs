@@ -15,7 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	asset,
+	asset::{BattleMogsAsset, BattleMogsId},
 	transitions::{BattleMogsTransitionConfig, BattleMogsTransitionOutput},
 	BattleMogsTransition,
 };
@@ -35,8 +35,8 @@ where
 	Balance: Member + Parameter + AtLeast32BitUnsigned + MaxEncodedLen,
 	Sage: SageApi<
 		AccountId = AccountId,
-		AssetId = asset::BattleMogsId,
-		Asset = asset::BattleMogsAsset<BlockNumber>,
+		AssetId = BattleMogsId,
+		Asset = BattleMogsAsset<BlockNumber>,
 		Balance = Balance,
 		BlockNumber = BlockNumber,
 		TransitionConfig = BattleMogsTransitionConfig,
@@ -45,7 +45,7 @@ where
 {
 	pub(crate) fn remove_mogwai(
 		owner: &AccountId,
-		mogwai_id: &asset::BattleMogsId,
+		mogwai_id: &BattleMogsId,
 	) -> Result<BattleMogsTransitionOutput<BlockNumber>, TransitionError> {
 		let _ = Self::get_owned_mogwai(owner, mogwai_id)?;
 

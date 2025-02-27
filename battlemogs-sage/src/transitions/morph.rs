@@ -16,8 +16,7 @@
 
 use crate::{
 	algorithm::Breeding,
-	asset,
-	asset::mogwai::PhaseType,
+	asset::{mogwai::PhaseType, BattleMogsAsset, BattleMogsId},
 	config::Pricing,
 	error::*,
 	transitions::{BattleMogsTransitionConfig, BattleMogsTransitionOutput, BreedType},
@@ -39,8 +38,8 @@ where
 	Balance: Member + Parameter + AtLeast32BitUnsigned + MaxEncodedLen,
 	Sage: SageApi<
 		AccountId = AccountId,
-		AssetId = asset::BattleMogsId,
-		Asset = asset::BattleMogsAsset<BlockNumber>,
+		AssetId = BattleMogsId,
+		Asset = BattleMogsAsset<BlockNumber>,
 		Balance = Balance,
 		BlockNumber = BlockNumber,
 		TransitionConfig = BattleMogsTransitionConfig,
@@ -49,10 +48,12 @@ where
 {
 	pub(crate) fn morph_mogwai(
 		owner: &AccountId,
-		mogwai_id: &asset::BattleMogsId,
+		mogwai_id: &BattleMogsId,
+		table_id: &BattleMogsId,
 		payment_asset: Option<Sage::FungiblesAssetId>,
 	) -> Result<BattleMogsTransitionOutput<BlockNumber>, TransitionError> {
 		let mut asset = Self::get_owned_mogwai(owner, mogwai_id)?;
+		let mut table_asset = Self::get_owned_achievement_table(owner, table_id)?;
 		let mogwai = asset.as_mogwai()?;
 		ensure!(mogwai.phase != PhaseType::Bred, BattleMogsError::from(MOGWAI_STILL_IN_BRED_PHASE));
 
@@ -66,8 +67,8 @@ where
 
 		mogwai.dna[0] = Breeding::morph(breed_type, dx, dy);
 
-		// TODO: Do something with the results
-		//let _ = Self::update_achievement_for(&sender, AccountAchievement::Morpheus, 1);
+		let table = table_asset.as_achievement()?;
+		table.morpheus = table.morpheus.increase_by(1);
 
 		Ok(sp_std::vec![TransitionOutput::Mutated(*mogwai_id, asset)])
 	}

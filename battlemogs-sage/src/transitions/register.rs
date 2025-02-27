@@ -15,9 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	asset::{mogwai::PhaseType, BattleMogsAsset, BattleMogsId},
-	config::Pricing,
-	error::*,
+	asset::{BattleMogsAsset, BattleMogsId, BattleMogsVariant},
 	transitions::{BattleMogsTransitionConfig, BattleMogsTransitionOutput},
 	BattleMogsTransition,
 };
@@ -25,10 +23,14 @@ use crate::{
 use ajuna_primitives::sage_api::SageApi;
 use sage_api::{traits::TransitionOutput, TransitionError};
 
+use crate::asset::achievement_table::{AchievementState, AchievementTable};
 use frame_support::pallet_prelude::*;
 use parity_scale_codec::Codec;
 use sp_core::H256;
-use sp_runtime::traits::{AtLeast32BitUnsigned, BlockNumber as BlockNumberT, Member};
+use sp_runtime::{
+	traits::{AtLeast32BitUnsigned, BlockNumber as BlockNumberT, Member},
+	SaturatedConversion,
+};
 
 impl<AccountId, BlockNumber, Balance, Sage> BattleMogsTransition<AccountId, BlockNumber, Sage>
 where
@@ -45,32 +47,42 @@ where
 		HashOutput = H256,
 	>,
 {
-	pub(crate) fn sacrifice_mogwai(
-		owner: &AccountId,
-		mogwai_id: &BattleMogsId,
-		table_id: &BattleMogsId,
-		payment_asset: Option<Sage::FungiblesAssetId>,
+	pub(crate) fn register_player(
+		player: &AccountId,
 	) -> Result<BattleMogsTransitionOutput<BlockNumber>, TransitionError> {
-		let mut asset = Self::get_owned_mogwai(owner, mogwai_id)?;
-		let mut table_asset = Self::get_owned_achievement_table(owner, table_id)?;
-		let mogwai = asset.as_mogwai()?;
+		Self::ensure_has_not_achievement_table(player)?;
 
-		ensure!(mogwai.phase != PhaseType::Bred, BattleMogsError::from(MOGWAI_STILL_IN_BRED_PHASE));
+		let config = Sage::get_transition_config();
 
-		let intrinsic_to_deposit = {
-			let mogwai_funds = Self::inspect_asset_funds(mogwai_id, payment_asset.clone());
-
-			let intrinsic_return = Pricing::<Balance>::intrinsic_return(mogwai.phase);
-			mogwai_funds.checked_div(&intrinsic_return).unwrap_or(Balance::zero())
+		let table = AchievementTable {
+			egg_hatcher: AchievementState::InProgress {
+				current: 0,
+				target: config.target_egg_hatcher,
+			},
+			sacrificer: AchievementState::InProgress {
+				current: 0,
+				target: config.target_sacrificer,
+			},
+			morpheus: AchievementState::InProgress { current: 0, target: config.target_morpheus },
+			legend_breeder: AchievementState::InProgress {
+				current: 0,
+				target: config.target_legend_breeder,
+			},
+			promiscuous: AchievementState::InProgress {
+				current: 0,
+				target: config.target_promiscuous,
+			},
 		};
-		Self::withdraw_funds_from_asset(mogwai_id, owner, payment_asset, intrinsic_to_deposit)?;
 
-		let table = table_asset.as_achievement()?;
-		table.sacrificer = table.sacrificer.increase_by(1);
+		let block_number = Sage::get_current_block_number();
+		let table_id = Self::new_asset_id(b"mogwai_id", block_number.saturated_into());
 
-		Ok(sp_std::vec![
-			TransitionOutput::Consumed(*mogwai_id),
-			TransitionOutput::Mutated(*table_id, table_asset)
-		])
+		let asset = BattleMogsAsset {
+			id: table_id,
+			genesis: block_number,
+			variant: BattleMogsVariant::AchievementTable(table),
+		};
+
+		Ok(sp_std::vec![TransitionOutput::Minted(asset)])
 	}
 }

@@ -16,7 +16,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crate::transitions::BattleMogsTransitionConfig;
+use crate::{
+	asset::{BattleMogsAsset, BattleMogsId},
+	transitions::BattleMogsTransitionConfig,
+};
 
 use ajuna_primitives::sage_api::SageApi;
 use sage_api::{traits::TransitionOutput, SageGameTransition, TransitionError};
@@ -28,20 +31,37 @@ use sp_runtime::traits::{AtLeast32BitUnsigned, BlockNumber as BlockNumberT};
 use sp_std::marker::PhantomData;
 
 mod algorithm;
-mod asset;
-mod config;
-mod error;
-mod transitions;
+pub mod asset;
+pub mod config;
+pub mod error;
+pub mod transitions;
+
+pub mod prelude {
+	pub use crate::{
+		asset::{
+			achievement_table::*, mogwai::*, BattleMogsAsset, BattleMogsId, BattleMogsVariant,
+		},
+		error::*,
+		transitions::BattleMogsTransitionConfig,
+		BattleMogsTransition,
+	};
+}
+
+pub mod sage_dependencies {
+	pub use ajuna_primitives::sage_api::SageApi;
+	pub use sage_api::{traits::TransitionOutput, SageGameTransition, TransitionError};
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub enum BattleMogsAction {
-	Create,
-	Remove(asset::BattleMogsId),
-	Hatch(asset::BattleMogsId),
-	Sacrifice(asset::BattleMogsId),
-	SacrificeInto(asset::BattleMogsId, asset::BattleMogsId),
-	Morph(asset::BattleMogsId),
-	Breed(asset::BattleMogsId, asset::BattleMogsId),
+	RegisterPlayer,
+	CreateMogwai,
+	Remove { mogwai: BattleMogsId },
+	Hatch { mogwai: BattleMogsId, table: BattleMogsId },
+	Sacrifice { mogwai: BattleMogsId, table: BattleMogsId },
+	SacrificeInto { mogwai: BattleMogsId, into: BattleMogsId, table: BattleMogsId },
+	Morph { mogwai: BattleMogsId, table: BattleMogsId },
+	Breed { mogwai_1: BattleMogsId, mogwai_2: BattleMogsId, table: BattleMogsId },
 }
 
 pub struct BattleMogsTransition<AccountId, BlockNumber, Sage> {
@@ -56,8 +76,8 @@ where
 	Balance: Member + Parameter + AtLeast32BitUnsigned + MaxEncodedLen,
 	Sage: SageApi<
 		AccountId = AccountId,
-		AssetId = asset::BattleMogsId,
-		Asset = asset::BattleMogsAsset<BlockNumber>,
+		AssetId = BattleMogsId,
+		Asset = BattleMogsAsset<BlockNumber>,
 		Balance = Balance,
 		BlockNumber = BlockNumber,
 		TransitionConfig = BattleMogsTransitionConfig,
@@ -67,8 +87,8 @@ where
 	type TransitionId = BattleMogsAction;
 	type TransitionConfig = BattleMogsTransitionConfig;
 	type AccountId = AccountId;
-	type AssetId = asset::BattleMogsId;
-	type Asset = asset::BattleMogsAsset<BlockNumber>;
+	type AssetId = BattleMogsId;
+	type Asset = BattleMogsAsset<BlockNumber>;
 	type Extra = ();
 	type PaymentFungible = Sage::FungiblesAssetId;
 
@@ -80,17 +100,19 @@ where
 		payment_asset: Option<Self::PaymentFungible>,
 	) -> Result<Vec<TransitionOutput<Self::AssetId, Self::Asset>>, TransitionError> {
 		match transition_id {
-			BattleMogsAction::Create => Self::create_mogwai(account_id),
-			BattleMogsAction::Remove(mogwai_id) => Self::remove_mogwai(account_id, mogwai_id),
-			BattleMogsAction::Hatch(mogwai_id) => Self::hatch_mogwai(account_id, mogwai_id),
-			BattleMogsAction::Sacrifice(mogwai_id) =>
-				Self::sacrifice_mogwai(account_id, mogwai_id, payment_asset),
-			BattleMogsAction::SacrificeInto(sacrificed_id, into_id) =>
-				Self::sacrifice_mogwai_into(account_id, sacrificed_id, into_id, payment_asset),
-			BattleMogsAction::Morph(mogwai_id) =>
-				Self::morph_mogwai(account_id, mogwai_id, payment_asset),
-			BattleMogsAction::Breed(mogwai_id_1, mogwai_id_2) =>
-				Self::breed_mogwais(account_id, mogwai_id_1, mogwai_id_2, payment_asset),
+			BattleMogsAction::RegisterPlayer => Self::register_player(account_id),
+			BattleMogsAction::CreateMogwai => Self::create_mogwai(account_id),
+			BattleMogsAction::Remove { mogwai } => Self::remove_mogwai(account_id, mogwai),
+			BattleMogsAction::Hatch { mogwai, table } =>
+				Self::hatch_mogwai(account_id, mogwai, table),
+			BattleMogsAction::Sacrifice { mogwai, table } =>
+				Self::sacrifice_mogwai(account_id, mogwai, table, payment_asset),
+			BattleMogsAction::SacrificeInto { mogwai, into, table } =>
+				Self::sacrifice_mogwai_into(account_id, mogwai, into, table, payment_asset),
+			BattleMogsAction::Morph { mogwai, table } =>
+				Self::morph_mogwai(account_id, mogwai, table, payment_asset),
+			BattleMogsAction::Breed { mogwai_1, mogwai_2, table } =>
+				Self::breed_mogwais(account_id, mogwai_1, mogwai_2, table, payment_asset),
 		}
 	}
 }

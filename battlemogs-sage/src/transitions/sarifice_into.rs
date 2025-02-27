@@ -16,8 +16,10 @@
 
 use crate::{
 	algorithm::Breeding,
-	asset,
-	asset::mogwai::{PhaseType, RarityType},
+	asset::{
+		mogwai::{PhaseType, RarityType},
+		BattleMogsAsset, BattleMogsId,
+	},
 	error::*,
 	transitions::{BattleMogsTransitionConfig, BattleMogsTransitionOutput},
 	BattleMogsTransition,
@@ -38,8 +40,8 @@ where
 	Balance: Member + Parameter + AtLeast32BitUnsigned + MaxEncodedLen,
 	Sage: SageApi<
 		AccountId = AccountId,
-		AssetId = asset::BattleMogsId,
-		Asset = asset::BattleMogsAsset<BlockNumber>,
+		AssetId = BattleMogsId,
+		Asset = BattleMogsAsset<BlockNumber>,
 		Balance = Balance,
 		BlockNumber = BlockNumber,
 		TransitionConfig = BattleMogsTransitionConfig,
@@ -48,8 +50,9 @@ where
 {
 	pub(crate) fn sacrifice_mogwai_into(
 		owner: &AccountId,
-		sacrificed_mogwai_id: &asset::BattleMogsId,
-		into_mogwai_id: &asset::BattleMogsId,
+		sacrificed_mogwai_id: &BattleMogsId,
+		into_mogwai_id: &BattleMogsId,
+		table_id: &BattleMogsId,
 		payment_asset: Option<Sage::FungiblesAssetId>,
 	) -> Result<BattleMogsTransitionOutput<BlockNumber>, TransitionError> {
 		let mut sacrificed_asset = Self::get_owned_mogwai(owner, sacrificed_mogwai_id)?;
@@ -74,6 +77,8 @@ where
 			BattleMogsError::from(MOGWAI_HAS_INVALID_RARITY)
 		);
 
+		let mut table_asset = Self::get_owned_achievement_table(owner, table_id)?;
+
 		let gen_jump = Breeding::sacrifice(
 			sacrificed_mogwai.generation,
 			sacrificed_mogwai.rarity,
@@ -96,12 +101,13 @@ where
 			Self::deposit_funds_to_asset(into_mogwai_id, owner, payment_asset, sacrifice_funds)?;
 		}
 
-		// TODO: Do something with the results
-		//let _ = Self::update_achievement_for(&sender, AccountAchievement::Sacrificer, 1);
+		let table = table_asset.as_achievement()?;
+		table.sacrificer = table.sacrificer.increase_by(1);
 
 		Ok(sp_std::vec![
 			TransitionOutput::Consumed(*sacrificed_mogwai_id),
-			TransitionOutput::Mutated(*into_mogwai_id, into_asset)
+			TransitionOutput::Mutated(*into_mogwai_id, into_asset),
+			TransitionOutput::Mutated(*table_id, table_asset)
 		])
 	}
 }

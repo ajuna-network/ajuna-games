@@ -23,6 +23,23 @@ pub enum AchievementState {
 }
 
 impl AchievementState {
+	pub fn increase_by(&mut self, amount: u16) -> AchievementState {
+		match self {
+			AchievementState::InProgress { current, target } => {
+				let new_current = current.saturating_add(amount);
+
+				if new_current >= *target {
+					AchievementState::Completed
+				} else {
+					AchievementState::InProgress { current: new_current, target: *target }
+				}
+			},
+			AchievementState::Completed => AchievementState::Completed,
+		}
+	}
+}
+
+impl AchievementState {
 	pub fn new(target: u16) -> Self {
 		Self::InProgress { current: Default::default(), target }
 	}

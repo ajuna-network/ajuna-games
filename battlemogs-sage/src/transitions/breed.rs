@@ -16,10 +16,9 @@
 
 use crate::{
 	algorithm::{Breeding, Generation},
-	asset,
 	asset::{
 		mogwai::{Mogwai as MogwaiVariant, PhaseType, RarityType},
-		BattleMogsAsset, BattleMogsVariant,
+		BattleMogsAsset, BattleMogsId, BattleMogsVariant,
 	},
 	config::Pricing,
 	error::*,
@@ -42,8 +41,8 @@ where
 	Balance: Member + Parameter + AtLeast32BitUnsigned + MaxEncodedLen,
 	Sage: SageApi<
 		AccountId = AccountId,
-		AssetId = asset::BattleMogsId,
-		Asset = asset::BattleMogsAsset<BlockNumber>,
+		AssetId = BattleMogsId,
+		Asset = BattleMogsAsset<BlockNumber>,
 		Balance = Balance,
 		BlockNumber = BlockNumber,
 		TransitionConfig = BattleMogsTransitionConfig,
@@ -52,8 +51,9 @@ where
 {
 	pub(crate) fn breed_mogwais(
 		owner: &AccountId,
-		mogwai_id_1: &asset::BattleMogsId,
-		mogwai_id_2: &asset::BattleMogsId,
+		mogwai_id_1: &BattleMogsId,
+		mogwai_id_2: &BattleMogsId,
+		table_id: &BattleMogsId,
 		payment_asset: Option<Sage::FungiblesAssetId>,
 	) -> Result<BattleMogsTransitionOutput<BlockNumber>, TransitionError> {
 		ensure!(
@@ -75,6 +75,8 @@ where
 			mogwai_2.phase != PhaseType::Bred,
 			BattleMogsError::from(MOGWAI_STILL_IN_BRED_PHASE)
 		);
+
+		let mut table_asset = Self::get_owned_achievement_table(owner, table_id)?;
 
 		let mogwai_nonce = mogwai_id_1.saturating_add(*mogwai_id_2) % 31;
 		let mogwai_id = Self::new_asset_id(b"breed_mogwai", mogwai_nonce);
@@ -107,14 +109,14 @@ where
 		};
 
 		if mogwai_rarity == RarityType::Mythical {
-			// TODO: Do something with the results
-			//let _ = Self::update_achievement_for(&sender, AccountAchievement::LegendBreeder, 1);
+			let table = table_asset.as_achievement()?;
+			table.legend_breeder = table.legend_breeder.increase_by(1);
 		}
 
 		let is_mogwai_2_owned = Sage::ensure_ownership(owner, mogwai_id_2).is_ok();
 		if !is_mogwai_2_owned {
-			// TODO: Do something with the results
-			//let _ = Self::update_achievement_for(&sender, AccountAchievement::Promiscuous, 1);
+			let table = table_asset.as_achievement()?;
+			table.promiscuous = table.promiscuous.increase_by(1);
 		}
 
 		Ok(sp_std::vec![TransitionOutput::Minted(bred_asset)])
