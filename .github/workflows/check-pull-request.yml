@@ -22,20 +22,26 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   CARGO_ARGS: ${{ github.ref == 'refs/heads/main' && '--release --all-targets' || '' }}
+  RUST_NIGHTLY_VERSION: 2024-11-19
 
 jobs:
   fmt:
+    if: ${{ !startsWith(github.head_ref, 'release/') }}
     name: Rustfmt
     runs-on: ubuntu-latest
     continue-on-error: false
-    env:
-      SKIP_WASM_BUILD: 1
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/cargo@v1
+      - uses: actions/checkout@v4
+
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
-          command: fmt
-          args: --all -- --check
+          targets: "wasm32-unknown-unknown"
+          components: "rustfmt"
+          toolchain: "nightly-${{env.RUST_NIGHTLY_VERSION}}"
+
+        # some settings are only available in nightly.
+      - run: cargo +nightly-$RUST_NIGHTLY_VERSION fmt --all -- --check
 
   check:
     name: Clippy and Check

@@ -1,0 +1,43 @@
+[package]
+name = "battlemogs-sage"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+parity-scale-codec = { workspace = true }
+scale-info         = { workspace = true }
+frame-support      = { workspace = true }
+sp-core            = { workspace = true }
+sp-runtime         = { workspace = true }
+sp-std             = { workspace = true }
+# Ajuna Primitives
+ajuna-payment-handler = { workspace = true }
+ajuna-primitives      = { workspace = true }
+# SAGE
+sage-api = { workspace = true }
+
+[features]
+default = [ "std" ]
+std = [
+	"parity-scale-codec/std",
+	"scale-info/std",
+	"frame-support/std",
+	"sp-core/std",
+	"sp-std/std",
+	"sp-runtime/std",
+	# Ajuna
+	"ajuna-payment-handler/std",
+	"ajuna-primitives/std",
+	"sage-api/std",
+]
+
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	# Ajuna
+	"ajuna-payment-handler/runtime-benchmarks",
+	"ajuna-primitives/runtime-benchmarks",
+]

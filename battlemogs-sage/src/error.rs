@@ -14,22 +14,25 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Coordinates, Position, BOARD_HEIGHT, BOARD_WIDTH};
+use sage_api::TransitionError;
 
-pub(crate) trait Bound {
-	/// Tells if something is inside the board.
-	fn is_inside_board(&self) -> bool;
-}
+pub const ASSET_NOT_FOUND: u8 = 0;
+pub const MOGWAI_LIMIT_REACHED: u8 = 1;
+pub const PLAYER_ALREADY_HAS_ACHIEVEMENT_TABLE: u8 = 2;
+pub const ASSET_IS_NOT_MOGWAI: u8 = 3;
+pub const ASSET_IS_NOT_ACHIEVEMENT_TABLE: u8 = 4;
+pub const CANNOT_USE_SAME_ASSET_FOR_BREEDING: u8 = 5;
+pub const MOGWAI_STILL_IN_BRED_PHASE: u8 = 6;
+pub const MOGWAI_NOT_IN_BRED_PHASE: u8 = 7;
+pub const MOGWAI_HAS_INVALID_RARITY: u8 = 8;
 
-impl Bound for Coordinates {
-	fn is_inside_board(&self) -> bool {
-		self.row < BOARD_WIDTH && self.col < BOARD_HEIGHT
-	}
-}
+pub const ASSET_COULD_NOT_RECEIVE_FUNDS: u8 = 100;
+pub const ASSET_COULD_NOT_WITHDRAW_FUNDS: u8 = 101;
 
-impl Bound for Position {
-	#[allow(clippy::redundant_comparisons)]
-	fn is_inside_board(&self) -> bool {
-		self < &BOARD_WIDTH && self < &BOARD_HEIGHT
+pub(crate) struct BattleMogsError;
+
+impl BattleMogsError {
+	pub(crate) fn from(code: u8) -> TransitionError {
+		TransitionError::Transition { code }
 	}
 }
